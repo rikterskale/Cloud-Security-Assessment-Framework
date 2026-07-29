@@ -8,6 +8,7 @@ an assessment. Exit code 1 if any required dependency fails.
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 import sys
 from pathlib import Path
