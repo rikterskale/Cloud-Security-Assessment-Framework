@@ -410,7 +410,9 @@ out/
 ├── coverage-report.csv
 ├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding
 ├── technical-report.json        # context + coverage + risk + compliance + all results + findings
-├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped)
+├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped);
+│                                 # shows the top 50 findings, plus a collapsible "Show all N findings"
+│                                 # section when there are more — nothing is silently dropped
 ├── manifest.json                # SHA-256 of every artifact
 └── evidence/                    # raw collector evidence (e.g. credential report), namespaced
 ```

@@ -194,16 +194,29 @@ def write_executive_html(
             f"{summary['persisted']} persisted, {summary['resolved']} resolved.</div>"
         )
 
-    rows = ""
-    for finding in ordered[:50]:
-        rows += (
-            f'<tr class="{finding.severity.lower()}">'
-            f"<td>{html.escape(finding.severity)}</td>"
-            f"<td>{html.escape(finding.control_id)}</td>"
-            f"<td>{html.escape(finding.title)}</td>"
-            f"<td>{html.escape(finding.resource_id[:60])}</td>"
-            f"<td>{html.escape(finding.remediation[:120])}</td></tr>\n"
-        )
+    def finding_rows(items: list[Finding]) -> str:
+        out = ""
+        for finding in items:
+            out += (
+                f'<tr class="{finding.severity.lower()}">'
+                f"<td>{html.escape(finding.severity)}</td>"
+                f"<td>{html.escape(finding.control_id)}</td>"
+                f"<td>{html.escape(finding.title)}</td>"
+                f"<td>{html.escape(finding.resource_id[:60])}</td>"
+                f"<td>{html.escape(finding.remediation[:120])}</td></tr>\n"
+            )
+        return out
+
+    rows = finding_rows(ordered[:50])
+    findings_heading = "Top Findings" if len(ordered) > 50 else "Findings"
+
+    all_findings_section = ""
+    if len(ordered) > 50:
+        all_findings_section = f"""<details class="all-findings">
+<summary>Show all {len(ordered)} findings</summary>
+<table><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
+<tbody>{finding_rows(ordered)}</tbody></table>
+</details>"""
 
     comp_rows = ""
     for entry in compliance.values():
@@ -246,6 +259,10 @@ td{{padding:.55rem 1rem;border-top:1px solid #334155;font-size:.85rem}}
 tr.critical td:first-child{{color:#ef4444;font-weight:700}}
 tr.high td:first-child{{color:#f97316;font-weight:700}}
 tr.medium td:first-child{{color:#eab308}}tr.low td:first-child{{color:#22c55e}}
+details.all-findings{{margin-bottom:1rem}}
+details.all-findings summary{{cursor:pointer;padding:.6rem 1rem;background:#1e293b;border-radius:8px;
+  font-size:.85rem;color:#94a3b8;margin-bottom:.6rem}}
+details.all-findings table{{margin-bottom:0}}
 </style></head><body>
 <h1>Cloud Security Assessment — Executive Summary</h1>
 <p class="sub">{html.escape(context.get("cloud", ""))} account {html.escape(context.get("accountId", ""))}
@@ -271,9 +288,10 @@ tr.medium td:first-child{{color:#eab308}}tr.low td:first-child{{color:#22c55e}}
 <h2>Compliance Rollup</h2>
 <table><thead><tr><th>Framework</th><th>Passed / Evaluated</th><th>Pass Rate</th></tr></thead>
 <tbody>{comp_rows or "<tr><td colspan=3>No mapped controls evaluated.</td></tr>"}</tbody></table>
-<h2>Top Findings</h2>
+<h2>{findings_heading}</h2>
 <table><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
 <tbody>{rows or "<tr><td colspan=5>No findings.</td></tr>"}</tbody></table>
+{all_findings_section}
 </body></html>"""
     with open(out_dir / "executive-summary.html", "w", encoding="utf-8") as handle:
         handle.write(doc)
