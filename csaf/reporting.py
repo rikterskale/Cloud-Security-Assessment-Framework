@@ -45,12 +45,22 @@ def write_control_results(results: list[ControlResult], out_dir: Path) -> None:
             writer.writerow(result.to_dict())
 
 
-def write_findings(findings: list[Finding], out_dir: Path) -> None:
+def write_findings(findings: list[Finding], out_dir: Path, delta=None) -> None:
+    """Write findings.json/csv. When ``delta`` (a ``FindingDelta``) is given,
+    each row also carries a ``DeltaStatus`` (New/Persisted) and
+    ``findings-resolved.json`` is written with findings absent from this run.
+    """
     ordered = sorted(findings, key=lambda f: (REMEDIATION_ORDER.get(f.severity, 9), f.control_id))
+
+    def row(finding: Finding) -> dict:
+        data = finding.to_dict()
+        if delta is not None:
+            data["DeltaStatus"] = delta.status_for(finding.finding_id)
+        return data
 
     json_path = out_dir / "findings.json"
     with open(json_path, "w", encoding="utf-8") as handle:
-        json.dump([f.to_dict() for f in ordered], handle, indent=2)
+        json.dump([row(f) for f in ordered], handle, indent=2)
 
     csv_path = out_dir / "findings.csv"
     fields = [
@@ -72,11 +82,17 @@ def write_findings(findings: list[Finding], out_dir: Path) -> None:
         "Remediation",
         "FirstObservedUtc",
     ]
+    if delta is not None:
+        fields.append("DeltaStatus")
     with open(csv_path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for finding in ordered:
-            writer.writerow(finding.to_dict())
+            writer.writerow(row(finding))
+
+    if delta is not None:
+        with open(out_dir / "findings-resolved.json", "w", encoding="utf-8") as handle:
+            json.dump(delta.resolved, handle, indent=2)
 
 
 def write_coverage(coverage: Coverage, not_tested_ids: list[str], out_dir: Path) -> None:
@@ -143,9 +159,18 @@ def write_executive_html(
     compliance: dict,
     context: dict,
     out_dir: Path,
+    delta=None,
 ) -> None:
     sev = risk["severity_counts"]
     ordered = sorted(findings, key=lambda f: (REMEDIATION_ORDER.get(f.severity, 9), -f.risk_score))
+
+    delta_banner = ""
+    if delta is not None:
+        summary = delta.to_summary()
+        delta_banner = (
+            f'<div class="banner delta">Delta vs previous run: {summary["new"]} new, '
+            f'{summary["persisted"]} persisted, {summary["resolved"]} resolved.</div>'
+        )
 
     rows = ""
     for finding in ordered[:50]:
@@ -186,6 +211,7 @@ h1{{font-size:1.6rem;margin-bottom:.3rem}}
 h2{{font-size:1.1rem;margin:1.6rem 0 .8rem}}
 .sub{{color:#94a3b8;margin-bottom:1.4rem;font-size:.9rem}}
 .banner{{background:#7c2d12;color:#fed7aa;padding:.8rem 1rem;border-radius:8px;margin-bottom:1.4rem;font-size:.9rem}}
+.banner.delta{{background:#1e3a8a;color:#bfdbfe}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin-bottom:1rem}}
 .card{{background:#1e293b;border-radius:12px;padding:1.1rem;text-align:center}}
 .card .num{{font-size:1.9rem;font-weight:700}}
@@ -204,6 +230,7 @@ tr.medium td:first-child{{color:#eab308}}tr.low td:first-child{{color:#22c55e}}
 &middot; profile {html.escape(context.get("profile", ""))}
 &middot; generated {utcnow_iso()} &middot; CSAF v{FRAMEWORK_VERSION}</p>
 {coverage_banner}
+{delta_banner}
 <div class="cards">
 <div class="card score"><div class="num">{risk["normalised_score"]}</div><div class="label">Risk Score ({risk["rating"]})</div></div>
 <div class="card"><div class="num">{len(findings)}</div><div class="label">Findings</div></div>

@@ -149,12 +149,16 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 
 | Flag | Default | Purpose |
 |---|---|---|
+| `--cloud` | `aws` | Cloud provider to assess (`aws`, `azure`, `gcp`) |
 | `--profile` | `Assessment` | Authorization profile (`Inventory`, `Assessment`, `Validation`, `AdversarySimulation`) |
-| `--regions` | `us-east-1` | Regions evaluated by per-region controls (space-separated) |
-| `--catalog` | `controls/control-catalog.json` | Control catalog path |
-| `--baseline` | `baselines/aws-cis-1.5.json` | Threshold/override baseline path |
+| `--regions` | `us-east-1` | Regions evaluated by per-region AWS controls (space-separated); Azure/GCP controls are subscription/project scoped |
+| `--catalog` | the selected cloud's catalog | Control catalog path |
+| `--baseline` | the selected cloud's CIS baseline | Threshold/override baseline path |
 | `--engagement` | none | Engagement authorization file (required for `Validation`) |
+| `--previous-findings` | none | Prior run's `findings.json` to diff against (adds `DeltaStatus` + `findings-resolved.json`) |
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
+| `--subscription` | discovered if unambiguous | Azure subscription ID |
+| `--project` | ADC default project | GCP project ID |
 | `--output-dir` | `csaf-output` | Directory for reports and evidence |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
@@ -366,6 +370,7 @@ out/
 ├── control-results.csv
 ├── findings.csv                 # prioritized findings only (CRITICAL first)
 ├── findings.json
+├── findings-resolved.json       # only written with --previous-findings: prior findings absent from this run
 ├── coverage-report.json         # executed/pass/fail/not-tested/error + NotTestedControls IDs
 ├── coverage-report.csv
 ├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding

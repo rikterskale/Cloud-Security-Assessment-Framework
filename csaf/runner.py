@@ -18,6 +18,7 @@ from .baseline import Baseline
 from .catalog import Catalog
 from .compliance import rollup
 from .coverage import compute_coverage, compute_risk_score
+from .delta import compute_delta
 from .engagement import Engagement
 from .evidence import EvidenceStore, write_manifest
 from .logging_ import AssessmentLogger
@@ -64,6 +65,7 @@ class RunConfig:
     catalog_path: str | None = None
     baseline_path: str | None = None
     engagement_path: str | None = None
+    previous_findings_path: str | None = None
     output_dir: str = "csaf-output"
     aws_profile: str | None = None
     subscription_id: str | None = None
@@ -164,6 +166,7 @@ def run_assessment(config: RunConfig) -> RunResult:
 
         # Derive findings from Fail/Review results only.
         findings = [finding_from_result(r, remediation_for(r.control_id)) for r in results if r.is_finding]
+        delta = compute_delta(findings, config.previous_findings_path)
 
         coverage = compute_coverage(selected_ids, results)
         evaluated_by_control = {r.control_id for r in results if r.is_executed or r.status == "Error"}
@@ -182,12 +185,15 @@ def run_assessment(config: RunConfig) -> RunResult:
             "selfCheck": config.self_check,
         }
 
+        if delta is not None:
+            context["findingsDelta"] = delta.to_summary()
+
         write_control_results(results, out_dir)
-        write_findings(findings, out_dir)
+        write_findings(findings, out_dir, delta=delta)
         write_coverage(coverage, not_tested_ids, out_dir)
         write_remediation_roadmap(findings, out_dir)
         write_technical_report(results, findings, coverage, risk, compliance, context, out_dir)
-        write_executive_html(findings, coverage, risk, compliance, context, out_dir)
+        write_executive_html(findings, coverage, risk, compliance, context, out_dir, delta=delta)
         write_manifest(out_dir, cloud_label, account_id, config.profile)
 
         # Report any selected control that did not complete.

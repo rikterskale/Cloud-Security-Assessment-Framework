@@ -74,6 +74,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--engagement", default=None, help="Path to the engagement authorization file (required for Validation)."
     )
+    parser.add_argument(
+        "--previous-findings",
+        default=None,
+        help="Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json).",
+    )
     parser.add_argument("--aws-profile", default=None, help="Named AWS credentials profile to use (read-only).")
     parser.add_argument(
         "--subscription", default=None, help="Azure subscription ID to assess (default: discovered if unambiguous)."
@@ -95,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
         catalog_path=args.catalog,
         baseline_path=args.baseline,
         engagement_path=args.engagement,
+        previous_findings_path=args.previous_findings,
         output_dir=args.output_dir,
         aws_profile=args.aws_profile,
         subscription_id=args.subscription,
