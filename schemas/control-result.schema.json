@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/csaf/control-result.schema.json",
+  "title": "CSAF control result",
+  "description": "One evaluated control per selected control per account/region scope. Execution errors are represented as status Error and are never treated as a security pass.",
+  "type": "object",
+  "required": [
+    "SchemaVersion",
+    "ControlId",
+    "Title",
+    "Category",
+    "Status",
+    "Severity",
+    "Confidence",
+    "Cloud",
+    "AccountId",
+    "ObservedValue",
+    "ExpectedValue",
+    "CollectedAtUtc"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "3.0" },
+    "ControlId": { "type": "string", "pattern": "^CSAF-[A-Z]+-[A-Z0-9-]+$" },
+    "Title": { "type": "string" },
+    "Category": { "type": "string" },
+    "Status": {
+      "enum": ["Pass", "Fail", "Review", "NotApplicable", "NotTested", "Error"]
+    },
+    "Severity": {
+      "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "Confidence": {
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "RiskScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "Cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "AccountId": { "type": "string" },
+    "Region": { "type": "string" },
+    "ResourceType": { "type": "string" },
+    "ResourceId": { "type": "string" },
+    "ObservedValue": { "type": "string" },
+    "ExpectedValue": { "type": "string" },
+    "Mappings": { "type": "array", "items": { "type": "string" } },
+    "EvidenceRef": { "type": "string" },
+    "ErrorReason": { "type": "string" },
+    "CollectedAtUtc": { "type": "string", "format": "date-time" }
+  }
+}

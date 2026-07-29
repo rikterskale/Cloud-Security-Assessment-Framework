@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "engagementId": "ENG-2026-042",
+  "customer": "Contoso",
+  "cloud": "AWS",
+  "authorizedAccounts": ["123456789012"],
+  "authorizedRegions": ["us-east-1", "us-west-2"],
+  "authorizedSourceAddresses": ["192.0.2.25"],
+  "windowStartUtc": "2026-07-29T12:00:00Z",
+  "windowEndUtc": "2026-07-30T00:00:00Z",
+  "operatorContacts": ["security@example.com"],
+  "stopConditions": [
+    "Customer requests testing stop",
+    "Unexpected production impact"
+  ],
+  "prohibitedActions": [
+    "Any resource creation, modification, or deletion",
+    "Credential exfiltration",
+    "Privilege escalation execution",
+    "Persistence installation"
+  ],
+  "activeValidationApproved": false,
+  "attestations": {
+    "CSAF-AWS-LOG-001": {
+      "status": "Review",
+      "evidence": "Provide the organization-trail configuration export."
+    },
+    "CSAF-AWS-OPS-001": {
+      "status": "NotTested",
+      "evidence": "Provide the account-level break-glass procedure."
+    }
+  }
+}

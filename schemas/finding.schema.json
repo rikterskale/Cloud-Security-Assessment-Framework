@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/csaf/finding.schema.json",
+  "title": "CSAF finding",
+  "description": "A prioritized security finding derived from a failed or review control result. Findings are a strict subset of control results; NotTested and Error control states never produce findings.",
+  "type": "object",
+  "required": [
+    "SchemaVersion",
+    "FindingId",
+    "ControlId",
+    "Title",
+    "Status",
+    "Severity",
+    "RiskScore",
+    "Confidence",
+    "Cloud",
+    "AccountId",
+    "Finding",
+    "Remediation"
+  ],
+  "properties": {
+    "SchemaVersion": { "const": "3.0" },
+    "FindingId": { "type": "string", "pattern": "^F-[A-F0-9]{16}$" },
+    "ControlId": { "type": "string", "pattern": "^CSAF-[A-Z]+-[A-Z0-9-]+$" },
+    "Title": { "type": "string" },
+    "Status": { "enum": ["Open", "Accepted", "Resolved", "RetestPending"] },
+    "Severity": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+    "RiskScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "Confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+    "Cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "AccountId": { "type": "string" },
+    "Region": { "type": "string" },
+    "ResourceType": { "type": "string" },
+    "ResourceId": { "type": "string" },
+    "ObservedValue": { "type": "string" },
+    "ExpectedValue": { "type": "string" },
+    "Finding": { "type": "string" },
+    "Remediation": { "type": "string" },
+    "Mappings": { "type": "array", "items": { "type": "string" } },
+    "EvidenceRef": { "type": "string" },
+    "FirstObservedUtc": { "type": "string", "format": "date-time" }
+  }
+}
