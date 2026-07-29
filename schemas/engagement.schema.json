@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/csaf/engagement.schema.json",
+  "title": "CSAF engagement authorization",
+  "description": "Binds an assessment run to an authorized scope, time window, and approval state. The Validation and AdversarySimulation profiles refuse to run unless activeValidationApproved is true and the current time is inside the window.",
+  "type": "object",
+  "required": ["engagementId"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "engagementId": { "type": "string", "minLength": 1 },
+    "customer": { "type": "string" },
+    "cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "authorizedAccounts": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9]{12}$" }
+    },
+    "authorizedRegions": { "type": "array", "items": { "type": "string" } },
+    "authorizedSourceAddresses": { "type": "array", "items": { "type": "string" } },
+    "windowStartUtc": { "type": "string", "format": "date-time" },
+    "windowEndUtc": { "type": "string", "format": "date-time" },
+    "operatorContacts": { "type": "array", "items": { "type": "string" } },
+    "stopConditions": { "type": "array", "items": { "type": "string" } },
+    "prohibitedActions": { "type": "array", "items": { "type": "string" } },
+    "activeValidationApproved": { "type": "boolean" },
+    "attestations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": ["Pass", "Fail", "Review", "NotApplicable", "NotTested", "Error"]
+          },
+          "evidence": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

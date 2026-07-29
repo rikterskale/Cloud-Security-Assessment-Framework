@@ -51,8 +51,12 @@ jobs:
       - run: pip install -r requirements.txt -r requirements-ci.txt
       - name: Dependency preflight
         run: python test_dependencies.py
-      - name: Unit tests
-        run: python -m unittest discover -s tests -v
+      - name: Unit tests with coverage
+        run: python -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests -v
+      - name: Coverage gate
+        run: |
+          python -m coverage report --show-missing
+          python -m coverage report --fail-under=90
       - name: Offline self-check report generation
         run: |
           python invoke_assessment.py --self-check --output-dir ci-out || true
