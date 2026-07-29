@@ -35,6 +35,43 @@ class CheckContext:
     cache: dict = field(default_factory=dict)
 
 
+def attestation_results(controls, engagement, cloud: str, account_id: str) -> list[ControlResult]:
+    """Resolve manual attestation controls from the engagement file.
+
+    Shared by every cloud provider: an attestation control is answered by an
+    operator-supplied record in the engagement, never by an API call.
+    """
+    out = []
+    attest = engagement.attestations
+    for control in controls:
+        record = attest.get(control.id)
+        if record:
+            status = record.get("status", "Review")
+            observed = record.get("evidence", "Operator attestation provided.")
+        else:
+            status = "NotTested"
+            observed = "No operator attestation supplied for this manual control."
+        severity = "INFO" if status in ("Pass", "NotApplicable", "NotTested") else control.default_severity
+        out.append(
+            ControlResult(
+                control_id=control.id,
+                title=control.title,
+                category=control.category,
+                status=status
+                if status in ("Pass", "Fail", "Review", "NotApplicable", "NotTested", "Error")
+                else "Review",
+                severity=severity,
+                confidence="LOW",
+                cloud=cloud,
+                account_id=account_id,
+                observed_value=observed,
+                expected_value=control.expected_state,
+                mappings=control.mappings,
+            )
+        )
+    return out
+
+
 class AssessmentModule:
     """Subclasses implement check methods named to match catalog ``check`` keys."""
 
