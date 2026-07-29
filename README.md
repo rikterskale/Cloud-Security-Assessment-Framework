@@ -554,6 +554,7 @@ python3 invoke_assessment.py --self-check --output-dir out
 ├── invoke_assessment.py         # main runner (CLI)
 ├── test_dependencies.py         # preflight
 ├── sign_engagement.py           # HMAC-sign/verify an engagement file
+├── pyproject.toml               # packaging + plugin entry-point group declarations
 ├── csaf/                        # framework package
 │   ├── model.py                 # statuses, control results, findings, IDs
 │   ├── catalog.py               # control catalog + profile filtering
@@ -561,6 +562,8 @@ python3 invoke_assessment.py --self-check --output-dir out
 │   ├── engagement.py            # authorization profiles, scope, window, signature check
 │   ├── engagement_signing.py    # HMAC-SHA256 sign/verify primitives
 │   ├── delta.py                 # findings delta vs a prior run (New/Persisted/Resolved)
+│   ├── detection_coverage.py    # per-MITRE-technique Gap/Covered/Unknown rollup
+│   ├── plugins.py               # third-party module discovery (entry points)
 │   ├── coverage.py              # coverage accounting + risk scoring
 │   ├── compliance.py            # framework rollup from mappings
 │   ├── reporting.py             # JSON/JSONL/CSV/HTML outputs
@@ -608,6 +611,24 @@ When adding checks:
    (`test_catalog_integrity.py` enforces both).
 5. Test the module with `tests/fakes.py` doubles — pass/fail/`NotApplicable`
    branches, error propagation, and threshold boundaries.
+
+### Third-party modules (plugins)
+
+Modules don't have to live in-tree. Any installed distribution can contribute
+additional check modules via a Python entry point in the matching group
+(`csaf.modules.aws`, `csaf.modules.azure`, or `csaf.modules.gcp`):
+
+```toml
+[project.entry-points."csaf.modules.aws"]
+my_service = "my_csaf_extra.aws:MyServiceModule"
+```
+
+`pip install`-ing that distribution makes `MyServiceModule` available under
+the catalog `module` key `my_service` — no change to CSAF itself. Built-in
+modules always win on a name collision (a plugin can't silently shadow a
+core control's implementation), and a plugin that fails to load only drops
+that one plugin, never the built-ins. See
+[`csaf/plugins.py`](csaf/plugins.py) and [`pyproject.toml`](pyproject.toml).
 
 ## Authorized use
 

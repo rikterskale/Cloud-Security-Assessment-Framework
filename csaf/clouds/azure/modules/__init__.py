@@ -1,5 +1,7 @@
 """Azure assessment modules."""
 
+from csaf.plugins import discover_plugin_modules
+
 from .compute import ComputeModule
 from .defender import DefenderModule
 from .identity import IdentityModule
@@ -9,8 +11,9 @@ from .network import NetworkModule
 from .sql import SqlModule
 from .storage import StorageModule
 
-# Maps catalog ``module`` keys to their implementation.
-MODULE_REGISTRY = {
+# Built-in modules, keyed by catalog ``module``. Third-party distributions can
+# add entries via the "csaf.modules.azure" entry-point group (see csaf/plugins.py).
+_BUILTIN_MODULE_REGISTRY = {
     "identity": IdentityModule,
     "defender": DefenderModule,
     "storage": StorageModule,
@@ -20,5 +23,7 @@ MODULE_REGISTRY = {
     "sql": SqlModule,
     "keyvault": KeyVaultModule,
 }
+
+MODULE_REGISTRY = discover_plugin_modules("csaf.modules.azure", _BUILTIN_MODULE_REGISTRY)
 
 __all__ = ["MODULE_REGISTRY"]
