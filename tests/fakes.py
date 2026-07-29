@@ -149,3 +149,125 @@ def make_ctx(
         session=FakeSession(clients),
         cache=cache if cache is not None else {},
     )
+
+
+def _resolve(value, arg):
+    """Shared response resolution: Exception instances raise, callables receive arg."""
+    if isinstance(value, Exception):
+        raise value
+    return value(arg) if callable(value) else value
+
+
+class FakeArmSession:
+    """Fake ArmSession serving canned responses keyed by exact request path.
+
+    Mirrors ``csaf.clouds.azure.session.ArmSession``'s public surface
+    (``get``/``get_value``) without any HTTP or credential dependency.
+    """
+
+    subscription_id = "sub-1"
+
+    def __init__(self, get=None, get_value=None):
+        self._get = dict(get or {})
+        self._get_value = dict(get_value or {})
+        self.calls = []
+
+    def get(self, path, api_version=None, params=None):
+        self.calls.append(("get", path, params))
+        if path not in self._get:
+            raise KeyError(f"FakeArmSession has no canned response for GET {path!r}")
+        return _resolve(self._get[path], params)
+
+    def get_value(self, path, api_version=None, params=None):
+        self.calls.append(("get_value", path, params))
+        if path not in self._get_value:
+            raise KeyError(f"FakeArmSession has no canned response for get_value {path!r}")
+        return _resolve(self._get_value[path], params)
+
+
+class FakeGcpSession:
+    """Fake GcpSession serving canned responses keyed by exact request URL.
+
+    Mirrors ``csaf.clouds.gcp.session.GcpSession``'s public surface
+    (``get``/``get_list``/``get_aggregated``/``post``) without any HTTP or
+    credential dependency.
+    """
+
+    project_id = "proj-1"
+
+    def __init__(self, get=None, get_list=None, get_aggregated=None, post=None):
+        self._get = dict(get or {})
+        self._get_list = dict(get_list or {})
+        self._get_aggregated = dict(get_aggregated or {})
+        self._post = dict(post or {})
+        self.calls = []
+
+    def get(self, url, params=None):
+        self.calls.append(("get", url, params))
+        if url not in self._get:
+            raise KeyError(f"FakeGcpSession has no canned response for GET {url!r}")
+        return _resolve(self._get[url], params)
+
+    def get_list(self, url, item_key, params=None):
+        self.calls.append(("get_list", url, params))
+        if url not in self._get_list:
+            raise KeyError(f"FakeGcpSession has no canned response for get_list {url!r}")
+        return _resolve(self._get_list[url], params)
+
+    def get_aggregated(self, url, item_key, params=None):
+        self.calls.append(("get_aggregated", url, params))
+        if url not in self._get_aggregated:
+            raise KeyError(f"FakeGcpSession has no canned response for get_aggregated {url!r}")
+        return _resolve(self._get_aggregated[url], params)
+
+    def post(self, url, json_body=None):
+        self.calls.append(("post", url, json_body))
+        if url not in self._post:
+            raise KeyError(f"FakeGcpSession has no canned response for POST {url!r}")
+        return _resolve(self._post[url], json_body)
+
+
+def make_azure_ctx(
+    root: str | Path,
+    get=None,
+    get_value=None,
+    thresholds=None,
+    engagement=None,
+    cache=None,
+) -> CheckContext:
+    return CheckContext(
+        cloud="Azure",
+        account_id=FakeArmSession.subscription_id,
+        region="global",
+        profile="Assessment",
+        baseline=Baseline({"thresholds": thresholds or {}}),
+        evidence=EvidenceStore(Path(root)),
+        logger=NullLogger(),
+        engagement=engagement or Engagement(),
+        session=FakeArmSession(get=get, get_value=get_value),
+        cache=cache if cache is not None else {},
+    )
+
+
+def make_gcp_ctx(
+    root: str | Path,
+    get=None,
+    get_list=None,
+    get_aggregated=None,
+    post=None,
+    thresholds=None,
+    engagement=None,
+    cache=None,
+) -> CheckContext:
+    return CheckContext(
+        cloud="GCP",
+        account_id=FakeGcpSession.project_id,
+        region="global",
+        profile="Assessment",
+        baseline=Baseline({"thresholds": thresholds or {}}),
+        evidence=EvidenceStore(Path(root)),
+        logger=NullLogger(),
+        engagement=engagement or Engagement(),
+        session=FakeGcpSession(get=get, get_list=get_list, get_aggregated=get_aggregated, post=post),
+        cache=cache if cache is not None else {},
+    )

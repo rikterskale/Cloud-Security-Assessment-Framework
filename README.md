@@ -416,9 +416,10 @@ time by recomputing SHA-256 over the files it lists.
 
 ## Testing
 
-The suite (~180 tests, standard-library `unittest`, no cloud credentials and no
-boto3 required) is designed around the framework's safety invariants: every
-"never" in this README has a test asserting it.
+The suite (320 tests, standard-library `unittest`, no cloud credentials and no
+provider SDKs required) is designed around the framework's safety invariants:
+every "never" in this README has a test asserting it. Line coverage is 95%
+overall (CI gates at >= 90%; see [Continuous integration](#continuous-integration)).
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -459,6 +460,10 @@ python3 -m coverage report --show-missing
 | `test_logging.py` | Level filtering, JSONL structure and extra fields, console-only operation |
 | `test_schema.py` | Every record from a full self-check run validates against the JSON Schemas; manifest hashes re-verify against the artifacts on disk |
 | `test_ci_config.py` | CI workflow keeps its gates (lint, tests, coverage >= 90%, pip-audit, read-all permissions) |
+| `test_readonly_azure_gcp.py` | Azure `ArmSession` (GET-only) and GCP `GcpSession` (GET + narrow read-only-POST allow-list) guardrails, including that a same-shaped mutating endpoint is still blocked |
+| `test_provider_azure_gcp.py` | Azure/GCP provider dispatch: subscription/project-scoped module routing, attestation handling, unknown modules, module-instance reuse |
+| `test_module_azure_*.py` | All eight Azure check modules (identity, defender, storage, network, compute, monitor, sql, keyvault) against faked ARM responses |
+| `test_module_gcp_*.py` | All seven GCP check modules (identity, storage, network, compute, logging, kms, sql) against faked GCP REST responses |
 
 ### Testing approach
 
