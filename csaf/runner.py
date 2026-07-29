@@ -73,6 +73,7 @@ class RunConfig:
     aws_profile: str | None = None
     subscription_id: str | None = None
     project_id: str | None = None
+    max_workers: int = 1
     log_level: str = "INFO"
     self_check: bool = False
 
@@ -139,6 +140,7 @@ def run_assessment(config: RunConfig) -> RunResult:
             account_id = provider.account_id
             logger.info("runner", "Running in offline self-check mode (no cloud calls).")
         else:
+            provider_kwargs: dict = {}
             if config.cloud == "aws":
                 from .clouds.aws.provider import AwsProvider as Provider
                 from .clouds.aws.session import AwsSession
@@ -146,6 +148,7 @@ def run_assessment(config: RunConfig) -> RunResult:
                 session = AwsSession(profile=config.aws_profile, region=config.regions[0])
                 account_id = session.account_id
                 scope_note = f"account {account_id} in regions {config.regions}"
+                provider_kwargs["max_workers"] = config.max_workers
             elif config.cloud == "azure":
                 from .clouds.azure.provider import AzureProvider as Provider
                 from .clouds.azure.session import ArmSession
@@ -167,7 +170,7 @@ def run_assessment(config: RunConfig) -> RunResult:
                 return RunResult(
                     EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Account {account_id} not authorized by engagement."
                 )
-            provider = Provider(session, baseline, evidence, logger, engagement, config.profile)
+            provider = Provider(session, baseline, evidence, logger, engagement, config.profile, **provider_kwargs)
             logger.info("runner", f"Assessing {cloud_label} {scope_note}.")
 
         results = provider.evaluate(controls, config.regions)

@@ -90,6 +90,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--subscription", default=None, help="Azure subscription ID to assess (default: discovered if unambiguous)."
     )
     parser.add_argument("--project", default=None, help="GCP project ID to assess (default: the ADC default project).")
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=1,
+        help="AWS only: evaluate this many regions concurrently (default: 1, sequential).",
+    )
     parser.add_argument("--output-dir", default="csaf-output", help="Directory for reports and evidence.")
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARN", "ERROR"])
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
@@ -112,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         aws_profile=args.aws_profile,
         subscription_id=args.subscription,
         project_id=args.project,
+        max_workers=args.max_workers,
         log_level=args.log_level,
         self_check=args.self_check,
     )

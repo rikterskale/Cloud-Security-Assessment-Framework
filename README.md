@@ -160,6 +160,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
 | `--subscription` | discovered if unambiguous | Azure subscription ID |
 | `--project` | ADC default project | GCP project ID |
+| `--max-workers` | `1` | AWS only: evaluate this many regions concurrently (sequential by default) |
 | `--output-dir` | `csaf-output` | Directory for reports and evidence |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
@@ -242,7 +243,12 @@ Key components:
 - **`csaf/clouds/aws/provider.py`** — orchestrates modules across regions with
   a shared per-scope cache (the credential report, bucket list, instance and
   trail inventories are each collected once per scope, then reused by every
-  check in that scope).
+  check in that scope). Regional-module evaluation is sequential by default;
+  `--max-workers N` evaluates up to `N` regions concurrently via a thread
+  pool. Each region gets its own cache (never shared across threads), and
+  module instances are stateless, so no locking is needed there; the logger
+  itself is lock-protected so concurrent region logs never interleave into
+  corrupted lines.
 
 ## Coverage semantics
 

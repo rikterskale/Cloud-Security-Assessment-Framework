@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from pathlib import Path
 
 from .model import utcnow_iso
@@ -19,6 +20,9 @@ class AssessmentLogger:
         self.jsonl_path = jsonl_path
         self._log_handle = open(log_path, "a", encoding="utf-8") if log_path else None
         self._jsonl_handle = open(jsonl_path, "a", encoding="utf-8") if jsonl_path else None
+        # Guards interleaved writes when regions are evaluated concurrently
+        # (see AwsProvider's max_workers); a no-op for single-threaded use.
+        self._lock = threading.Lock()
 
     def _emit(self, level: str, component: str, message: str, **fields) -> None:
         if LEVELS.get(level, 20) < self.level:
@@ -26,21 +30,22 @@ class AssessmentLogger:
         ts = utcnow_iso()
         line = f"{ts} [{level:<5}] {component}: {message}"
         stream = sys.stderr if level in ("WARN", "ERROR") else sys.stdout
-        print(line, file=stream)
-        if self._log_handle:
-            self._log_handle.write(line + "\n")
-            self._log_handle.flush()
-        if self._jsonl_handle:
-            record = {
-                "ts": ts,
-                "runId": self.run_id,
-                "level": level,
-                "component": component,
-                "message": message,
-                **fields,
-            }
-            self._jsonl_handle.write(json.dumps(record) + "\n")
-            self._jsonl_handle.flush()
+        with self._lock:
+            print(line, file=stream)
+            if self._log_handle:
+                self._log_handle.write(line + "\n")
+                self._log_handle.flush()
+            if self._jsonl_handle:
+                record = {
+                    "ts": ts,
+                    "runId": self.run_id,
+                    "level": level,
+                    "component": component,
+                    "message": message,
+                    **fields,
+                }
+                self._jsonl_handle.write(json.dumps(record) + "\n")
+                self._jsonl_handle.flush()
 
     def debug(self, component: str, message: str, **fields) -> None:
         self._emit("DEBUG", component, message, **fields)

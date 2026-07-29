@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -59,6 +60,24 @@ class TestAssessmentLogger(unittest.TestCase):
             logger.info("comp", "quiet")
             logger.error("comp", "loud")
         logger.close()  # must not raise with no file handles
+
+    def test_concurrent_emit_produces_no_corrupted_or_lost_lines(self):
+        # Used when AwsProvider evaluates regions in parallel (max_workers > 1).
+        with tempfile.TemporaryDirectory() as tmp:
+            logger, _, jsonl_path = self.make_logger(tmp, "INFO")
+            threads = []
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                for i in range(20):
+                    t = threading.Thread(target=logger.info, args=("comp", f"msg-{i}"), kwargs={"region": f"r{i}"})
+                    threads.append(t)
+                    t.start()
+                for t in threads:
+                    t.join()
+            logger.close()
+            lines = jsonl_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(lines), 20)  # no lost/merged lines
+            records = [json.loads(line) for line in lines]  # each line must be valid, unmangled JSON
+            self.assertEqual({r["region"] for r in records}, {f"r{i}" for i in range(20)})
 
 
 if __name__ == "__main__":
