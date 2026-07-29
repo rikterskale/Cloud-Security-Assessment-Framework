@@ -65,6 +65,7 @@ class RunConfig:
     catalog_path: str | None = None
     baseline_path: str | None = None
     engagement_path: str | None = None
+    engagement_key_path: str | None = None
     previous_findings_path: str | None = None
     output_dir: str = "csaf-output"
     aws_profile: str | None = None
@@ -109,7 +110,12 @@ def run_assessment(config: RunConfig) -> RunResult:
         baseline = Baseline.load(config.baseline_path or cloud["baseline"])
         engagement = Engagement.load(config.engagement_path)
 
-        allowed, reason = engagement.authorize_profile(config.profile)
+        signing_key = None
+        if config.engagement_key_path:
+            with open(config.engagement_key_path, "rb") as handle:
+                signing_key = handle.read().strip()
+
+        allowed, reason = engagement.authorize_profile(config.profile, signing_key=signing_key)
         logger.info("engagement", f"Profile '{config.profile}' authorization: {reason}")
         if not allowed:
             logger.error("engagement", f"Profile '{config.profile}' is not authorized: {reason}")

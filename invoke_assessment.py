@@ -75,6 +75,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--engagement", default=None, help="Path to the engagement authorization file (required for Validation)."
     )
     parser.add_argument(
+        "--engagement-key-file",
+        default=None,
+        help="Path to a shared-secret key file; when set, the engagement file's signature must verify "
+        "(see sign_engagement.py) or Validation/AdversarySimulation is refused.",
+    )
+    parser.add_argument(
         "--previous-findings",
         default=None,
         help="Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json).",
@@ -100,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         catalog_path=args.catalog,
         baseline_path=args.baseline,
         engagement_path=args.engagement,
+        engagement_key_path=args.engagement_key_file,
         previous_findings_path=args.previous_findings,
         output_dir=args.output_dir,
         aws_profile=args.aws_profile,

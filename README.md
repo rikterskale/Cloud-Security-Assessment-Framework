@@ -155,6 +155,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--catalog` | the selected cloud's catalog | Control catalog path |
 | `--baseline` | the selected cloud's CIS baseline | Threshold/override baseline path |
 | `--engagement` | none | Engagement authorization file (required for `Validation`) |
+| `--engagement-key-file` | none | Shared-secret key file; when set, the engagement file's signature must verify (see [`sign_engagement.py`](sign_engagement.py)) |
 | `--previous-findings` | none | Prior run's `findings.json` to diff against (adds `DeltaStatus` + `findings-resolved.json`) |
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
 | `--subscription` | discovered if unambiguous | Azure subscription ID |
@@ -360,6 +361,25 @@ The engagement file ([schema](schemas/engagement.schema.json),
 - `stopConditions` / `prohibitedActions` / `operatorContacts` — recorded for
   the engagement record.
 
+### Engagement signing (optional)
+
+The engagement file grants active-validation authorization by itself — a JSON
+flag anyone with filesystem access could edit unnoticed. Signing binds an
+approver's review to a shared secret so a later silent edit is detectable:
+
+```bash
+python3 -c "import secrets; open('engagement.key','wb').write(secrets.token_bytes(32))"
+python3 sign_engagement.py --engagement engagement.json --key-file engagement.key
+```
+
+Then pass `--engagement-key-file engagement.key` to `invoke_assessment.py`.
+With a key supplied, `Validation`/`AdversarySimulation` is refused if the
+signature doesn't verify — including after any edit made post-signing, since
+the signature covers the full file content (minus the signature field
+itself). This is HMAC (shared-secret) signing, not PKI — appropriate for an
+approver and operator who already share a key out of band, not for
+third-party verification. See [`csaf/engagement_signing.py`](csaf/engagement_signing.py).
+
 ## Output artifacts
 
 ```text
@@ -503,8 +523,8 @@ Run locally:
 
 ```bash
 pip install -r requirements.txt -r requirements-ci.txt
-ruff check csaf tests invoke_assessment.py test_dependencies.py
-ruff format --check csaf tests invoke_assessment.py test_dependencies.py
+ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
+ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
 python3 -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests
 python3 -m coverage report --fail-under=90
 python3 invoke_assessment.py --self-check --output-dir out
@@ -516,11 +536,14 @@ python3 invoke_assessment.py --self-check --output-dir out
 .
 ├── invoke_assessment.py         # main runner (CLI)
 ├── test_dependencies.py         # preflight
+├── sign_engagement.py           # HMAC-sign/verify an engagement file
 ├── csaf/                        # framework package
 │   ├── model.py                 # statuses, control results, findings, IDs
 │   ├── catalog.py               # control catalog + profile filtering
 │   ├── baseline.py              # thresholds, severity overrides, exclusions
-│   ├── engagement.py            # authorization profiles, scope, window
+│   ├── engagement.py            # authorization profiles, scope, window, signature check
+│   ├── engagement_signing.py    # HMAC-SHA256 sign/verify primitives
+│   ├── delta.py                 # findings delta vs a prior run (New/Persisted/Resolved)
 │   ├── coverage.py              # coverage accounting + risk scoring
 │   ├── compliance.py            # framework rollup from mappings
 │   ├── reporting.py             # JSON/JSONL/CSV/HTML outputs

@@ -13,6 +13,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .engagement_signing import verify as verify_signature
+
 
 def _parse_utc(value: str | None) -> datetime.datetime | None:
     if not value:
@@ -34,6 +36,8 @@ class Engagement:
     prohibited_actions: list[str] = field(default_factory=list)
     active_validation_approved: bool = False
     attestations: dict = field(default_factory=dict)
+    signature: str | None = None
+    _signed_content: dict = field(default_factory=dict, repr=False)
 
     @classmethod
     def load(cls, path: str | Path | None) -> "Engagement":
@@ -41,6 +45,8 @@ class Engagement:
             return cls()
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
+        signature = data.get("signature")
+        signed_content = {k: v for k, v in data.items() if k != "signature"}
         return cls(
             engagement_id=data.get("engagementId", "UNSCOPED"),
             customer=data.get("customer", ""),
@@ -54,7 +60,17 @@ class Engagement:
             prohibited_actions=data.get("prohibitedActions", []),
             active_validation_approved=bool(data.get("activeValidationApproved", False)),
             attestations=data.get("attestations", {}),
+            signature=signature,
+            _signed_content=signed_content,
         )
+
+    def verify_signature(self, key: bytes) -> bool:
+        """Verify the loaded file's content against ``key``.
+
+        Returns ``False`` for an unsigned file (an unscoped/default
+        ``Engagement()`` has no ``_signed_content`` either, and also fails).
+        """
+        return bool(self._signed_content) and verify_signature(self._signed_content, self.signature, key)
 
     def in_window(self, now: datetime.datetime | None = None) -> bool:
         now = now or datetime.datetime.now(datetime.timezone.utc)
@@ -69,11 +85,16 @@ class Engagement:
     def account_authorized(self, account_id: str) -> bool:
         return not self.authorized_accounts or account_id in self.authorized_accounts
 
-    def authorize_profile(self, profile: str) -> tuple[bool, str]:
+    def authorize_profile(self, profile: str, signing_key: bytes | None = None) -> tuple[bool, str]:
         """Return (allowed, reason) for running a profile under this engagement.
 
         Inventory and Assessment are read-only and always allowed. Validation
         and AdversarySimulation require explicit approval and an active window.
+
+        ``signing_key`` is opt-in: when supplied, the engagement file's content
+        must verify against it (see ``engagement_signing``) or authorization is
+        refused, so a silent edit to ``activeValidationApproved`` after
+        signing is caught rather than trusted.
         """
         if profile in ("Inventory", "Assessment"):
             return True, "Read-only profile; no active-validation authorization required."
@@ -81,4 +102,6 @@ class Engagement:
             return False, "Engagement does not approve active validation (activeValidationApproved=false)."
         if not self.in_window():
             return False, "Current time is outside the engagement's authorized window."
+        if signing_key is not None and not self.verify_signature(signing_key):
+            return False, "Engagement signature verification failed; the file may have been altered after signing."
         return True, "Active validation approved and within the authorized window."

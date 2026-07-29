@@ -19,9 +19,9 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements-ci.txt
       - name: Ruff lint
-        run: ruff check csaf tests invoke_assessment.py test_dependencies.py
+        run: ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
       - name: Ruff format check
-        run: ruff format --check csaf tests invoke_assessment.py test_dependencies.py
+        run: ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
 
   audit:
     name: Dependency vulnerability audit
