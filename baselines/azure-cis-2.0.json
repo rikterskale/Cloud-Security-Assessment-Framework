@@ -1,0 +1,14 @@
+{
+  "baselineId": "azure-cis-2.0",
+  "title": "CIS Microsoft Azure Foundations Benchmark v2.0 aligned baseline",
+  "cloud": "Azure",
+  "version": "2026.1",
+  "description": "Threshold values consumed by CSAF Azure check functions. Customer baselines may override any key.",
+  "thresholds": {
+    "sensitiveIngressPorts": [22, 3389],
+    "subscriptionOwnerMaxCount": 3,
+    "requiredDefenderPlans": ["VirtualMachines", "StorageAccounts", "SqlServers"]
+  },
+  "severityOverrides": {},
+  "notApplicableControls": []
+}

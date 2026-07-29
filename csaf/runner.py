@@ -36,16 +36,38 @@ EXIT_OK = 0
 EXIT_FATAL = 1
 EXIT_INCOMPLETE = 2
 
+# Per-cloud defaults: display label, control catalog, and baseline thresholds.
+CLOUDS = {
+    "aws": {
+        "label": "AWS",
+        "catalog": "controls/control-catalog.json",
+        "baseline": "baselines/aws-cis-1.5.json",
+    },
+    "azure": {
+        "label": "Azure",
+        "catalog": "controls/control-catalog-azure.json",
+        "baseline": "baselines/azure-cis-2.0.json",
+    },
+    "gcp": {
+        "label": "GCP",
+        "catalog": "controls/control-catalog-gcp.json",
+        "baseline": "baselines/gcp-cis-1.3.json",
+    },
+}
+
 
 @dataclass
 class RunConfig:
     profile: str = "Assessment"
+    cloud: str = "aws"
     regions: list[str] = field(default_factory=lambda: ["us-east-1"])
-    catalog_path: str = "controls/control-catalog.json"
+    catalog_path: str | None = None
     baseline_path: str | None = None
     engagement_path: str | None = None
     output_dir: str = "csaf-output"
     aws_profile: str | None = None
+    subscription_id: str | None = None
+    project_id: str | None = None
     log_level: str = "INFO"
     self_check: bool = False
 
@@ -74,8 +96,15 @@ def run_assessment(config: RunConfig) -> RunResult:
     )
 
     try:
-        catalog = Catalog.load(config.catalog_path)
-        baseline = Baseline.load(config.baseline_path)
+        if config.cloud not in CLOUDS:
+            logger.error("runner", f"Unknown cloud '{config.cloud}'. Choose one of: {sorted(CLOUDS)}.")
+            logger.close()
+            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unknown cloud: {config.cloud}")
+        cloud = CLOUDS[config.cloud]
+        cloud_label = cloud["label"]
+
+        catalog = Catalog.load(config.catalog_path or cloud["catalog"])
+        baseline = Baseline.load(config.baseline_path or cloud["baseline"])
         engagement = Engagement.load(config.engagement_path)
 
         allowed, reason = engagement.authorize_profile(config.profile)
@@ -96,23 +125,40 @@ def run_assessment(config: RunConfig) -> RunResult:
         if config.self_check:
             from .selfcheck import SelfCheckProvider
 
-            provider = SelfCheckProvider()
+            provider = SelfCheckProvider(cloud_label)
             account_id = provider.account_id
             logger.info("runner", "Running in offline self-check mode (no cloud calls).")
         else:
-            from .clouds.aws.provider import AwsProvider
-            from .clouds.aws.session import AwsSession
+            if config.cloud == "aws":
+                from .clouds.aws.provider import AwsProvider as Provider
+                from .clouds.aws.session import AwsSession
 
-            session = AwsSession(profile=config.aws_profile, region=config.regions[0])
-            account_id = session.account_id
+                session = AwsSession(profile=config.aws_profile, region=config.regions[0])
+                account_id = session.account_id
+                scope_note = f"account {account_id} in regions {config.regions}"
+            elif config.cloud == "azure":
+                from .clouds.azure.provider import AzureProvider as Provider
+                from .clouds.azure.session import ArmSession
+
+                session = ArmSession(subscription_id=config.subscription_id)
+                account_id = session.subscription_id
+                scope_note = f"subscription {account_id}"
+            else:
+                from .clouds.gcp.provider import GcpProvider as Provider
+                from .clouds.gcp.session import GcpSession
+
+                session = GcpSession(project_id=config.project_id)
+                account_id = session.project_id
+                scope_note = f"project {account_id}"
+
             if not engagement.account_authorized(account_id):
                 logger.error("engagement", f"Account {account_id} is not in the authorized scope.")
                 logger.close()
                 return RunResult(
                     EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Account {account_id} not authorized by engagement."
                 )
-            provider = AwsProvider(session, baseline, evidence, logger, engagement, config.profile)
-            logger.info("runner", f"Assessing AWS account {account_id} in regions {config.regions}.")
+            provider = Provider(session, baseline, evidence, logger, engagement, config.profile)
+            logger.info("runner", f"Assessing {cloud_label} {scope_note}.")
 
         results = provider.evaluate(controls, config.regions)
 
@@ -127,7 +173,7 @@ def run_assessment(config: RunConfig) -> RunResult:
 
         context = {
             "runId": run_id,
-            "cloud": "AWS",
+            "cloud": cloud_label,
             "accountId": account_id,
             "profile": config.profile,
             "regions": config.regions,
@@ -142,7 +188,7 @@ def run_assessment(config: RunConfig) -> RunResult:
         write_remediation_roadmap(findings, out_dir)
         write_technical_report(results, findings, coverage, risk, compliance, context, out_dir)
         write_executive_html(findings, coverage, risk, compliance, context, out_dir)
-        write_manifest(out_dir, "AWS", account_id, config.profile)
+        write_manifest(out_dir, cloud_label, account_id, config.profile)
 
         # Report any selected control that did not complete.
         for control_id in not_tested_ids:

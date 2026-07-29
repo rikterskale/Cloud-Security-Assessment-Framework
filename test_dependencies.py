@@ -15,6 +15,13 @@ from pathlib import Path
 REQUIRED_PYTHON = (3, 10)
 
 
+def _find(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:  # parent package of a dotted name is absent
+        return False
+
+
 def _check(label: str, ok: bool, detail: str, required: bool) -> tuple[str, bool]:
     status = "PASS" if ok else ("FAIL" if required else "WARN")
     print(f"  [{status}] {label}: {detail}")
@@ -32,7 +39,7 @@ def main() -> int:
     all_required_ok &= ok
 
     for module in ("boto3", "botocore"):
-        found = importlib.util.find_spec(module) is not None
+        found = _find(module)
         _, ok = _check(
             f"{module} installed",
             found,
@@ -41,31 +48,39 @@ def main() -> int:
         )
         all_required_ok &= ok
 
-    for module in ("jsonschema",):
-        found = importlib.util.find_spec(module) is not None
+    optional = {
+        "jsonschema": "schema validation tests skipped",
+        "azure.identity": "needed for live Azure assessment (pip install -r requirements-azure.txt)",
+        "google.auth": "needed for live GCP assessment (pip install -r requirements-gcp.txt)",
+        "requests": "needed for live Azure/GCP assessment",
+    }
+    for module, note in optional.items():
+        found = _find(module)
         _check(
             f"{module} installed (optional)",
             found,
-            "available" if found else "missing (schema validation tests skipped)",
+            "available" if found else f"missing ({note})",
             required=False,
         )
 
     root = Path(__file__).parent
-    catalog = root / "controls" / "control-catalog.json"
-    ok_catalog = catalog.exists()
-    _, ok = _check("control catalog present", ok_catalog, str(catalog), required=True)
-    all_required_ok &= ok
-    if ok_catalog:
-        try:
-            data = json.loads(catalog.read_text(encoding="utf-8"))
-            count = len(data.get("controls", []))
-            _check("control catalog parses", True, f"{count} controls", required=True)
-        except Exception as exc:  # noqa: BLE001
-            _, ok = _check("control catalog parses", False, str(exc), required=True)
-            all_required_ok &= ok
+    for name in ("control-catalog.json", "control-catalog-azure.json", "control-catalog-gcp.json"):
+        catalog = root / "controls" / name
+        ok_catalog = catalog.exists()
+        _, ok = _check(f"{name} present", ok_catalog, str(catalog), required=True)
+        all_required_ok &= ok
+        if ok_catalog:
+            try:
+                data = json.loads(catalog.read_text(encoding="utf-8"))
+                count = len(data.get("controls", []))
+                _check(f"{name} parses", True, f"{count} controls", required=True)
+            except Exception as exc:  # noqa: BLE001
+                _, ok = _check(f"{name} parses", False, str(exc), required=True)
+                all_required_ok &= ok
 
-    baseline = root / "baselines" / "aws-cis-1.5.json"
-    _check("default baseline present (optional)", baseline.exists(), str(baseline), required=False)
+    for name in ("aws-cis-1.5.json", "azure-cis-2.0.json", "gcp-cis-1.3.json"):
+        baseline = root / "baselines" / name
+        _check(f"baseline {name} present (optional)", baseline.exists(), str(baseline), required=False)
 
     print()
     if all_required_ok:
