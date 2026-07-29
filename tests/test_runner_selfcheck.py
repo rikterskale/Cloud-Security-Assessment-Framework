@@ -53,15 +53,14 @@ class TestSelfCheckRun(unittest.TestCase):
             self.assertTrue(all(a["SHA256"] for a in manifest["Artifacts"]))
 
     def test_azure_and_gcp_self_check_pipelines(self):
-        for cloud, label in (("azure", "Azure"), ("gcp", "GCP")):
+        baselines = {"azure": "azure-cis-2.0.json", "gcp": "gcp-cis-1.3.json", "k8s": "k8s-cis-1.8.json"}
+        for cloud, label in (("azure", "Azure"), ("gcp", "GCP"), ("k8s", "K8s")):
             with self.subTest(cloud=cloud), tempfile.TemporaryDirectory() as tmp:
                 config = RunConfig(
                     profile="Assessment",
                     cloud=cloud,
                     catalog_path=str(REPO / "controls" / f"control-catalog-{cloud}.json"),
-                    baseline_path=str(
-                        REPO / "baselines" / ("azure-cis-2.0.json" if cloud == "azure" else "gcp-cis-1.3.json")
-                    ),
+                    baseline_path=str(REPO / "baselines" / baselines[cloud]),
                     output_dir=tmp,
                     self_check=True,
                     log_level="ERROR",

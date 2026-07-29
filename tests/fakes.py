@@ -271,3 +271,66 @@ def make_gcp_ctx(
         session=FakeGcpSession(get=get, get_list=get_list, get_aggregated=get_aggregated, post=post),
         cache=cache if cache is not None else {},
     )
+
+
+class FakeK8sApiGroup:
+    """Fake Kubernetes API group (e.g. ``rbac_v1``) serving canned responses.
+
+    ``responses`` maps method name -> object | Exception | callable(kwargs).
+    Every call is recorded in ``self.calls`` for assertion.
+    """
+
+    def __init__(self, responses=None):
+        self._responses = dict(responses or {})
+        self.calls = []
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if name not in self._responses:
+            raise AttributeError(f"FakeK8sApiGroup has no canned response for {name!r}")
+        value = self._responses[name]
+
+        def call(**kwargs):
+            self.calls.append((name, kwargs))
+            outcome = value(kwargs) if callable(value) else value
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        return call
+
+
+class FakeK8sSession:
+    """Fake K8sSession handing out FakeK8sApiGroups by name, mirroring K8sSession.api()."""
+
+    cluster_context = "test-cluster"
+
+    def __init__(self, apis=None):
+        self._apis = dict(apis or {})
+
+    def api(self, name):
+        if name not in self._apis:
+            raise KeyError(f"FakeK8sSession has no API group registered for {name!r}")
+        return self._apis[name]
+
+
+def make_k8s_ctx(
+    root: str | Path,
+    apis=None,
+    thresholds=None,
+    engagement=None,
+    cache=None,
+) -> CheckContext:
+    return CheckContext(
+        cloud="K8s",
+        account_id=FakeK8sSession.cluster_context,
+        region="global",
+        profile="Assessment",
+        baseline=Baseline({"thresholds": thresholds or {}}),
+        evidence=EvidenceStore(Path(root)),
+        logger=NullLogger(),
+        engagement=engagement or Engagement(),
+        session=FakeK8sSession(apis=apis),
+        cache=cache if cache is not None else {},
+    )

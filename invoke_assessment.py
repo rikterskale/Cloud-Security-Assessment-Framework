@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CSAF — Cloud Security Assessment Framework runner (AWS / Azure / GCP).
+"""CSAF — Cloud Security Assessment Framework runner (AWS / Azure / GCP / K8s).
 
 Read-only cloud security posture assessment. Enumerates configuration,
 evaluates a declarative control catalog, and produces coverage, findings, and
@@ -13,6 +13,7 @@ Offline demo (no cloud needed):
     python3 invoke_assessment.py --self-check --output-dir out
     python3 invoke_assessment.py --self-check --cloud azure --output-dir out
     python3 invoke_assessment.py --self-check --cloud gcp --output-dir out
+    python3 invoke_assessment.py --self-check --cloud k8s --output-dir out
 
 Assess an AWS account:
     python3 invoke_assessment.py --profile Assessment \
@@ -25,6 +26,9 @@ Assess an Azure subscription (uses DefaultAzureCredential):
 
 Assess a GCP project (uses Application Default Credentials):
     python3 invoke_assessment.py --cloud gcp --project my-project --output-dir out
+
+Assess a Kubernetes cluster (uses the current or named kubeconfig context):
+    python3 invoke_assessment.py --cloud k8s --kube-context my-cluster --output-dir out
 
 Validation profile (requires an approving engagement file):
     python3 invoke_assessment.py --profile Validation \
@@ -48,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cloud",
         default="aws",
-        choices=["aws", "azure", "gcp"],
+        choices=["aws", "azure", "gcp", "k8s"],
         help="Cloud provider to assess (default: aws).",
     )
     parser.add_argument(
@@ -91,6 +95,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--project", default=None, help="GCP project ID to assess (default: the ADC default project).")
     parser.add_argument(
+        "--kube-context",
+        default=None,
+        help="Kubeconfig context to assess (default: the kubeconfig's current-context).",
+    )
+    parser.add_argument(
+        "--kubeconfig",
+        default=None,
+        help="Path to a kubeconfig file (default: the standard kubeconfig locations/KUBECONFIG env var).",
+    )
+    parser.add_argument(
         "--max-workers",
         type=int,
         default=1,
@@ -118,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
         aws_profile=args.aws_profile,
         subscription_id=args.subscription,
         project_id=args.project,
+        kube_context=args.kube_context,
+        kubeconfig_path=args.kubeconfig,
         max_workers=args.max_workers,
         log_level=args.log_level,
         self_check=args.self_check,

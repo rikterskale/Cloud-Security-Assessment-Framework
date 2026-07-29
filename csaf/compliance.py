@@ -13,6 +13,7 @@ FRAMEWORK_PREFIXES = {
     "CIS-AWS": "CIS AWS Foundations",
     "CIS-Azure": "CIS Microsoft Azure Foundations",
     "CIS-GCP": "CIS Google Cloud Platform Foundations",
+    "CIS-Kubernetes": "CIS Kubernetes Benchmark",
     "NIST-800-53": "NIST SP 800-53",
     "MITRE": "MITRE ATT&CK",
     "RhinoSecurityLabs": "Rhino Security Labs Privesc Matrix",

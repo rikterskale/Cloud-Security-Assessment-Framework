@@ -11,10 +11,10 @@ at runtime. Optional non-destructive validation (for example
 `iam:SimulatePrincipalPolicy`-style policy analysis) is gated behind the
 `Validation` authorization profile and an approving engagement file.
 
-CSAF supports **AWS, Azure, and GCP** end-to-end. The framework core
-(engagement, catalog, coverage, findings, reporting) is cloud-agnostic; each
-cloud plugs in as a provider under `csaf/clouds/` with its own control catalog
-and CIS-aligned baseline.
+CSAF supports **AWS, Azure, GCP, and Kubernetes** end-to-end. The framework
+core (engagement, catalog, coverage, findings, reporting) is cloud-agnostic;
+each cloud plugs in as a provider under `csaf/clouds/` with its own control
+catalog and CIS-aligned baseline.
 
 > The offensive red-team methodology documents that seeded this project now live
 > under [`reference/`](reference/) and are **reference-only**. CSAF itself is a
@@ -66,7 +66,8 @@ pinned by unit tests (see [Testing](#testing)):
 python3 -m pip install -r requirements.txt
 ```
 
-For live Azure or GCP assessments, add the optional provider dependencies:
+For live Azure, GCP, or Kubernetes assessments, add the optional provider
+dependencies:
 
 ```bash
 python3 -m pip install -r requirements-azure.txt
@@ -74,6 +75,10 @@ python3 -m pip install -r requirements-azure.txt
 
 ```bash
 python3 -m pip install -r requirements-gcp.txt
+```
+
+```bash
+python3 -m pip install -r requirements-k8s.txt
 ```
 
 ### 2. Preflight
@@ -88,7 +93,7 @@ python3 test_dependencies.py
 python3 invoke_assessment.py --self-check --output-dir out
 ```
 
-Add `--cloud azure` or `--cloud gcp` to demo those catalogs. This runs the full
+Add `--cloud azure`, `--cloud gcp`, or `--cloud k8s` to demo those catalogs. This runs the full
 evaluation and reporting pipeline against a synthetic posture (`csaf/selfcheck.py`)
 so you can see every output artifact without cloud credentials. The AWS demo
 posture deliberately leaves one operator-attestation control untested, so the
@@ -130,6 +135,16 @@ read-only role such as `roles/viewer`:
 python3 invoke_assessment.py --cloud gcp --project my-project --output-dir out
 ```
 
+**Kubernetes** — authenticates via the current (or named) kubeconfig context
+with a read-only ClusterRole such as one aggregated from the built-in `view`
+role:
+
+```bash
+python3 invoke_assessment.py --cloud k8s --kube-context my-cluster --output-dir out
+```
+
+If `--kube-context` is omitted, the kubeconfig's `current-context` is used.
+
 ### 5. Validation profile (requires an approving engagement)
 
 ```bash
@@ -149,9 +164,9 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 
 | Flag | Default | Purpose |
 |---|---|---|
-| `--cloud` | `aws` | Cloud provider to assess (`aws`, `azure`, `gcp`) |
+| `--cloud` | `aws` | Cloud provider to assess (`aws`, `azure`, `gcp`, `k8s`) |
 | `--profile` | `Assessment` | Authorization profile (`Inventory`, `Assessment`, `Validation`, `AdversarySimulation`) |
-| `--regions` | `us-east-1` | Regions evaluated by per-region AWS controls (space-separated); Azure/GCP controls are subscription/project scoped |
+| `--regions` | `us-east-1` | Regions evaluated by per-region AWS controls (space-separated); Azure/GCP/K8s controls are subscription/project/cluster scoped |
 | `--catalog` | the selected cloud's catalog | Control catalog path |
 | `--baseline` | the selected cloud's CIS baseline | Threshold/override baseline path |
 | `--engagement` | none | Engagement authorization file (required for `Validation`) |
@@ -160,6 +175,8 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
 | `--subscription` | discovered if unambiguous | Azure subscription ID |
 | `--project` | ADC default project | GCP project ID |
+| `--kube-context` | kubeconfig's `current-context` | Kubernetes context to assess |
+| `--kubeconfig` | standard kubeconfig locations / `KUBECONFIG` | Path to a kubeconfig file |
 | `--max-workers` | `1` | AWS only: evaluate this many regions concurrently (sequential by default) |
 | `--output-dir` | `csaf-output` | Directory for reports and evidence |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
@@ -324,6 +341,15 @@ and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 | KMS / Cloud SQL | CMEK rotation; Cloud SQL not open to world, TLS required |
 | Operations | Break-glass procedure (operator attestation) |
 
+### Kubernetes — 5 controls ([`control-catalog-k8s.json`](controls/control-catalog-k8s.json))
+
+| Category | Example controls |
+|---|---|
+| RBAC | No non-system subject bound to `cluster-admin` |
+| Pod Security | No privileged containers, no `hostNetwork` pods (outside kube-system/kube-public/kube-node-lease) |
+| Network | Every workload namespace has at least one NetworkPolicy |
+| Operations | Break-glass procedure (operator attestation) |
+
 Each catalog entry declares its `module` (implementation class), `check`
 (method name), `defaultSeverity`, `expectedState`, `profiles`, and framework
 `mappings`. A catalog-integrity test verifies every entry resolves to a real,
@@ -349,7 +375,7 @@ Notable check behaviours:
 
 Thresholds (password length, key age, sensitive ports, required services) live
 per cloud in [`baselines/`](baselines/): `aws-cis-1.5.json`, `azure-cis-2.0.json`,
-and `gcp-cis-1.3.json`. Supply a customer baseline with `--baseline` to:
+`gcp-cis-1.3.json`, and `k8s-cis-1.8.json`. Supply a customer baseline with `--baseline` to:
 
 - **override thresholds** — customer values merge over the defaults in
   `csaf/baseline.py`, untouched keys keep their defaults;
@@ -410,7 +436,9 @@ out/
 ├── coverage-report.csv
 ├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding
 ├── technical-report.json        # context + coverage + risk + compliance + all results + findings
-├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped)
+├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped);
+│                                 # shows the top 50 findings, plus a collapsible "Show all N findings"
+│                                 # section when there are more — nothing is silently dropped
 ├── manifest.json                # SHA-256 of every artifact
 └── evidence/                    # raw collector evidence (e.g. credential report), namespaced
 ```
@@ -444,9 +472,14 @@ time by recomputing SHA-256 over the files it lists.
     narrow, exact-suffix allow-list of three read-only POST endpoints
     (`:getIamPolicy`, `:testIamPermissions`, `:searchAll`); a same-shaped
     mutating endpoint (`:setIamPolicy`) is explicitly tested as still blocked.
+  - Kubernetes: `csaf/clouds/k8s/session.py`'s `ReadOnlyApiClient` wraps every
+    generated API object so only `list_*`/`read_*` operations can be called;
+    this specifically blocks `connect_*` (the verb prefix the client uses for
+    exec/attach/port-forward), not just `create_*`/`patch_*`/`delete_*`.
 - **Scope enforcement.** The runner refuses to assess an AWS account, Azure
-  subscription, or GCP project that is not in the engagement's
-  `authorizedAccounts`.
+  subscription, GCP project, or Kubernetes context that is not in the
+  engagement's `authorizedAccounts` (for Kubernetes, list the kubeconfig
+  context name).
 - **Evidence protection.** The manifest proves artifact integrity via SHA-256;
   it does not encrypt evidence. Store outputs on an access-controlled,
   encrypted volume. Evidence can contain sensitive IAM and configuration data.
@@ -456,9 +489,9 @@ time by recomputing SHA-256 over the files it lists.
 
 ## Testing
 
-The suite (320 tests, standard-library `unittest`, no cloud credentials and no
+The suite (405 tests, standard-library `unittest`, no cloud credentials and no
 provider SDKs required) is designed around the framework's safety invariants:
-every "never" in this README has a test asserting it. Line coverage is 95%
+every "never" in this README has a test asserting it. Line coverage is 94%
 overall (CI gates at >= 90%; see [Continuous integration](#continuous-integration)).
 
 ```bash
@@ -501,18 +534,23 @@ python3 -m coverage report --show-missing
 | `test_schema.py` | Every record from a full self-check run validates against the JSON Schemas; manifest hashes re-verify against the artifacts on disk |
 | `test_ci_config.py` | CI workflow keeps its gates (lint, tests, coverage >= 90%, pip-audit, read-all permissions) |
 | `test_readonly_azure_gcp.py` | Azure `ArmSession` (GET-only) and GCP `GcpSession` (GET + narrow read-only-POST allow-list) guardrails, including that a same-shaped mutating endpoint is still blocked |
+| `test_readonly_k8s.py` | Kubernetes `ReadOnlyApiClient` guardrail: `list_*`/`read_*` allowed, `create_*`/`delete_*`/`patch_*`/`replace_*` blocked, and `connect_*` (exec/attach/port-forward) specifically blocked |
 | `test_provider_azure_gcp.py` | Azure/GCP provider dispatch: subscription/project-scoped module routing, attestation handling, unknown modules, module-instance reuse |
+| `test_provider_k8s.py` | Kubernetes provider dispatch: cluster-scoped module routing, attestation handling, unknown modules, module-instance reuse |
 | `test_module_azure_*.py` | All eight Azure check modules (identity, defender, storage, network, compute, monitor, sql, keyvault) against faked ARM responses |
 | `test_module_gcp_*.py` | All seven GCP check modules (identity, storage, network, compute, logging, kms, sql) against faked GCP REST responses |
+| `test_module_k8s_*.py` | All three Kubernetes check modules (rbac, pods, network) against faked API responses |
 
 ### Testing approach
 
-- **No mocking framework, no network.** AWS check modules receive a
-  `CheckContext` whose `session` is a `tests/fakes.py` `FakeSession` serving
+- **No mocking framework, no network.** Check modules receive a `CheckContext`
+  whose `session` is a `tests/fakes.py` fake (`FakeSession` for AWS,
+  `FakeArmSession`/`FakeGcpSession`/`FakeK8sSession` for the others) serving
   canned API responses — checks are exercised byte-for-byte as in production,
   including evidence writes and baseline threshold lookups. Response values can
   be per-call callables (e.g. keyed on `Bucket`) or `Exception` instances to
-  simulate API errors.
+  simulate API errors. Kubernetes fakes use `types.SimpleNamespace` to mirror
+  the real client's attribute-style typed objects (`item.metadata.name`, etc.).
 - **Invariant pinning.** The dangerous properties — mutating calls blocked,
   errors never passing, findings a strict subset, coverage never masking an
   error — each have dedicated tests, so a regression fails loudly.
@@ -579,9 +617,10 @@ python3 invoke_assessment.py --self-check --output-dir out
 │       │   ├── session.py       # ReadOnlyClient guardrail
 │       │   └── modules/         # identity, s3, compute, network, logging, kms, rds
 │       ├── azure/               # Azure provider, ArmSession (GET-only) guardrail, modules
-│       └── gcp/                 # GCP provider, GcpSession (GET + read-only-POST allow-list) guardrail, modules
-├── controls/                    # control-catalog{,-azure,-gcp}.json
-├── baselines/                   # aws-cis-1.5, azure-cis-2.0, gcp-cis-1.3
+│       ├── gcp/                 # GCP provider, GcpSession (GET + read-only-POST allow-list) guardrail, modules
+│       └── k8s/                 # K8s provider, ReadOnlyApiClient (list_*/read_* only) guardrail, modules
+├── controls/                    # control-catalog{,-azure,-gcp,-k8s}.json
+├── baselines/                   # aws-cis-1.5, azure-cis-2.0, gcp-cis-1.3, k8s-cis-1.8
 ├── schemas/                     # finding / control-result / engagement / manifest
 ├── tests/                       # unit + integration + end-to-end tests (see Testing)
 │   └── fakes.py                 # shared FakeClient/FakeSession/make_ctx doubles
@@ -594,11 +633,12 @@ python3 invoke_assessment.py --self-check --output-dir out
 Add a provider package under `csaf/clouds/<cloud>/` that exposes an
 `evaluate(controls, regions)` method returning `ControlResult` objects, add a
 matching control catalog and baseline, and register the cloud in
-`csaf/runner.py`'s `CLOUDS` table. The Azure and GCP providers are compact
-references for the pattern: a guarded read-only session, a module registry, and
-a provider that dispatches catalog controls to check methods. The core
-(engagement, coverage, findings, reporting, manifest) is cloud-agnostic and
-reused as-is.
+`csaf/runner.py`'s `CLOUDS` table. The Azure, GCP, and Kubernetes providers
+are compact references for the pattern: a guarded read-only session, a module
+registry, and a provider that dispatches catalog controls to check methods
+(Azure/GCP/Kubernetes all evaluate once at a single "global" scope since none
+has AWS's per-region structure). The core (engagement, coverage, findings,
+reporting, manifest) is cloud-agnostic and reused as-is.
 
 When adding checks:
 
@@ -616,7 +656,7 @@ When adding checks:
 
 Modules don't have to live in-tree. Any installed distribution can contribute
 additional check modules via a Python entry point in the matching group
-(`csaf.modules.aws`, `csaf.modules.azure`, or `csaf.modules.gcp`):
+(`csaf.modules.aws`, `csaf.modules.azure`, `csaf.modules.gcp`, or `csaf.modules.k8s`):
 
 ```toml
 [project.entry-points."csaf.modules.aws"]
@@ -633,5 +673,6 @@ that one plugin, never the built-ins. See
 ## Authorized use
 
 CSAF is for authorized security assessments only. Run it against accounts,
-subscriptions, or projects you own or are explicitly authorized to assess,
-using least-privilege read-only credentials, and protect the output directory.
+subscriptions, projects, or clusters you own or are explicitly authorized to
+assess, using least-privilege read-only credentials, and protect the output
+directory.

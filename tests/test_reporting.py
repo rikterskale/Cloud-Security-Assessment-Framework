@@ -156,6 +156,24 @@ class TestExecutiveHtml(ReportingTestCase):
         self.assertIn("3/4", html_doc)
         self.assertIn("75%", html_doc)
 
+    def test_50_or_fewer_findings_has_no_all_findings_section(self):
+        findings = [make_finding(f"CSAF-AWS-X-{i:03d}", resource_id=f"r{i}") for i in range(50)]
+        html_doc = self.render(findings)
+        self.assertNotIn("Show all", html_doc)
+        self.assertIn("<h2>Findings</h2>", html_doc)
+
+    def test_over_50_findings_adds_collapsible_full_list(self):
+        findings = [make_finding(f"CSAF-AWS-X-{i:03d}", severity="CRITICAL", resource_id=f"r{i}") for i in range(75)]
+        html_doc = self.render(findings)
+        self.assertIn("<h2>Top Findings</h2>", html_doc)
+        self.assertIn("Show all 75 findings", html_doc)
+        self.assertIn("<details", html_doc)
+        # Every finding's resource ID must appear somewhere (nothing silently dropped).
+        for i in range(75):
+            self.assertIn(f"r{i}", html_doc)
+        # Preview table (50 rows) + full table inside <details> (75 rows) = 125 severity rows total.
+        self.assertEqual(html_doc.count('<tr class="critical">'), 50 + 75)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -71,6 +71,11 @@ REMEDIATION = {
     "CSAF-GCP-SQL-001": "Remove 0.0.0.0/0 authorized networks from Cloud SQL; use private IP or the Cloud SQL Auth Proxy.",
     "CSAF-GCP-SQL-002": "Require TLS on public-IP Cloud SQL instances (sslMode ENCRYPTED_ONLY or stricter).",
     "CSAF-GCP-OPS-001": "Document and periodically test a break-glass procedure for organization and project owner access.",
+    "CSAF-K8S-RBAC-001": "Remove the ClusterRoleBinding or replace the subject with a least-privilege Role/RoleBinding.",
+    "CSAF-K8S-POD-001": "Remove privileged: true from the container's securityContext; use specific capabilities instead.",
+    "CSAF-K8S-POD-002": "Remove hostNetwork: true from the pod spec unless required and explicitly approved.",
+    "CSAF-K8S-NET-001": "Create a default-deny NetworkPolicy in the namespace, then allow only required traffic.",
+    "CSAF-K8S-OPS-001": "Document and periodically test a break-glass procedure for cluster-admin access.",
 }
 
 

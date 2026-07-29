@@ -7,6 +7,7 @@ from csaf.catalog import Catalog
 from csaf.clouds.aws.modules import MODULE_REGISTRY as AWS_REGISTRY
 from csaf.clouds.azure.modules import MODULE_REGISTRY as AZURE_REGISTRY
 from csaf.clouds.gcp.modules import MODULE_REGISTRY as GCP_REGISTRY
+from csaf.clouds.k8s.modules import MODULE_REGISTRY as K8S_REGISTRY
 
 CONTROLS_DIR = Path(__file__).resolve().parent.parent / "controls"
 
@@ -14,6 +15,7 @@ CATALOGS = {
     "control-catalog.json": AWS_REGISTRY,
     "control-catalog-azure.json": AZURE_REGISTRY,
     "control-catalog-gcp.json": GCP_REGISTRY,
+    "control-catalog-k8s.json": K8S_REGISTRY,
 }
 
 
