@@ -25,8 +25,14 @@ class TestCIConfig(unittest.TestCase):
             "read-all",
             "coverage run",
             "--fail-under=90",
+            "cyclonedx-json",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
+
+    def test_sbom_job_required_for_ci_success(self):
+        self.assertIn("sbom", self.text)
+        needs_line = next(line for line in self.text.splitlines() if "needs:" in line)
+        self.assertIn("sbom", needs_line, "ci-success must depend on the sbom job")
 
     def test_python_matrix(self):
         for version in ["3.10", "3.12"]:

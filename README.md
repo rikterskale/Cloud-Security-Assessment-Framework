@@ -524,6 +524,8 @@ permissions and these gates:
 
 - Ruff lint and format checks
 - `pip-audit` dependency vulnerability audit
+- CycloneDX SBOM generation (`pip-audit --format cyclonedx-json`), uploaded as
+  a build artifact
 - Python 3.10 / 3.12 / 3.14 unit-test matrix
 - Line-coverage gate: `coverage report --fail-under=90` over `csaf/` and the CLI
 - Dependency preflight and offline self-check report generation
