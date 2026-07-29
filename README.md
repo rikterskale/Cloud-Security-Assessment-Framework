@@ -6,14 +6,15 @@ exactly one status per selected control, and produces coverage, findings, and
 executive/technical/remediation reports with a tamper-evident evidence manifest.
 
 It does **not** create, modify, or delete cloud resources, and it does **not**
-execute exploitation. A read-only guardrail blocks any mutating AWS API call at
-runtime. Optional non-destructive validation (for example
+execute exploitation. A read-only guardrail blocks any mutating cloud API call
+at runtime. Optional non-destructive validation (for example
 `iam:SimulatePrincipalPolicy`-style policy analysis) is gated behind the
 `Validation` authorization profile and an approving engagement file.
 
-This first release implements **AWS** end-to-end. The framework core
-(engagement, catalog, coverage, findings, reporting) is cloud-agnostic so Azure
-and GCP providers can be added under `csaf/clouds/`.
+CSAF supports **AWS, Azure, and GCP** end-to-end. The framework core
+(engagement, catalog, coverage, findings, reporting) is cloud-agnostic; each
+cloud plugs in as a provider under `csaf/clouds/` with its own control catalog
+and CIS-aligned baseline.
 
 > The offensive red-team methodology documents that seeded this project now live
 > under [`reference/`](reference/) and are **reference-only**. CSAF itself is a
@@ -40,25 +41,36 @@ These mirror the sibling Active Directory assessment framework:
 python3 -m pip install -r requirements.txt
 ```
 
+For live Azure or GCP assessments, add the optional provider dependencies:
+
+```bash
+python3 -m pip install -r requirements-azure.txt
+```
+
+```bash
+python3 -m pip install -r requirements-gcp.txt
+```
+
 ### 2. Preflight
 
 ```bash
 python3 test_dependencies.py
 ```
 
-### 3. Offline demo (no AWS needed)
+### 3. Offline demo (no cloud needed)
 
 ```bash
 python3 invoke_assessment.py --self-check --output-dir out
 ```
 
-This runs the full evaluation and reporting pipeline against a synthetic posture
-so you can see every output artifact without cloud credentials.
+Add `--cloud azure` or `--cloud gcp` to demo those catalogs. This runs the full
+evaluation and reporting pipeline against a synthetic posture so you can see
+every output artifact without cloud credentials.
 
-### 4. Assess a real account (read-only credentials)
+### 4. Assess a real environment (read-only credentials)
 
-Use credentials with a read-only policy such as the AWS managed
-`SecurityAudit` or `ReadOnlyAccess` policy.
+**AWS** — use credentials with a read-only policy such as the AWS managed
+`SecurityAudit` or `ReadOnlyAccess` policy:
 
 ```bash
 python3 invoke_assessment.py \
@@ -67,6 +79,27 @@ python3 invoke_assessment.py \
   --aws-profile audit \
   --baseline baselines/aws-cis-1.5.json \
   --output-dir out
+```
+
+**Azure** — authenticates via `DefaultAzureCredential` (Azure CLI login,
+environment variables, or managed identity) with a read-only role such as
+`Reader` plus `Security Reader`:
+
+```bash
+python3 invoke_assessment.py --cloud azure \
+  --subscription 00000000-0000-0000-0000-000000000000 \
+  --output-dir out
+```
+
+If the credentials see exactly one enabled subscription, `--subscription` can
+be omitted.
+
+**GCP** — authenticates via Application Default Credentials
+(`gcloud auth application-default login` or a service-account key) with a
+read-only role such as `roles/viewer`:
+
+```bash
+python3 invoke_assessment.py --cloud gcp --project my-project --output-dir out
 ```
 
 ### 5. Validation profile (requires an approving engagement)
@@ -123,12 +156,12 @@ Start with `coverage-report.csv` to confirm every selected control ran, then
 `findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never
 security passes.
 
-## Control coverage (AWS)
+## Control coverage
 
-29 controls across Identity/IAM, privileged access, S3 data protection,
-EC2/compute, networking, logging & detection (CloudTrail, Config, GuardDuty),
-KMS, and RDS. Each control maps to CIS AWS Foundations, NIST SP 800-53, and/or
-MITRE ATT&CK references in [`controls/control-catalog.json`](controls/control-catalog.json).
+Each control maps to the relevant CIS Foundations benchmark, NIST SP 800-53,
+and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
+
+### AWS — 29 controls ([`control-catalog.json`](controls/control-catalog.json))
 
 | Category | Example controls |
 |---|---|
@@ -138,24 +171,57 @@ MITRE ATT&CK references in [`controls/control-catalog.json`](controls/control-ca
 | Compute (EC2) | IMDSv2 required, EBS default encryption, public-instance exposure |
 | Network | Admin-port ingress from `0.0.0.0/0`, default SG restricted, VPC flow logs |
 | Logging / detection | Multi-region CloudTrail, log validation, KMS encryption, Config, GuardDuty |
-| KMS | Customer-managed key rotation |
-| RDS | Encryption at rest, public accessibility |
+| KMS / RDS | Customer-managed key rotation; RDS encryption at rest, public accessibility |
+| Operations | Break-glass procedure (operator attestation) |
+
+### Azure — 16 controls ([`control-catalog-azure.json`](controls/control-catalog-azure.json))
+
+| Category | Example controls |
+|---|---|
+| Privileged access | No custom subscription-admin roles, limited subscription Owners |
+| Defender for Cloud | Standard-tier plans for core workloads, security contact configured |
+| Storage | Secure transfer required, blob public access disallowed, TLS 1.2 minimum, default-deny network ACLs |
+| Network | NSG admin-port ingress from Internet, Network Watcher enabled |
+| Compute | VMs use managed disks |
+| Logging | Subscription activity-log export, Azure SQL auditing |
+| SQL / Key Vault | SQL public network access disabled; vault soft delete + purge protection |
+| Operations | Break-glass procedure (operator attestation) |
+
+### GCP — 19 controls ([`control-catalog-gcp.json`](controls/control-catalog-gcp.json))
+
+| Category | Example controls |
+|---|---|
+| Identity / IAM | Service accounts without admin roles, no user-managed SA keys, SA key rotation, basic roles on users |
+| Storage | No public bucket IAM grants, uniform bucket-level access |
+| Network | No default network, no `0.0.0.0/0` ingress to admin ports, subnet flow logs |
+| Compute | Default compute SA not used, no external IPs, OS Login, serial ports disabled |
+| Logging | allServices audit config, catch-all log sink |
+| KMS / Cloud SQL | CMEK rotation; Cloud SQL not open to world, TLS required |
 | Operations | Break-glass procedure (operator attestation) |
 
 ## Baselines
 
-Thresholds (password length, key age, sensitive ports, required services) live in
-[`baselines/aws-cis-1.5.json`](baselines/aws-cis-1.5.json). Supply a customer
-baseline with `--baseline` to override thresholds, override per-control severity,
-or mark controls not-applicable.
+Thresholds (password length, key age, sensitive ports, required services) live
+per cloud in [`baselines/`](baselines/): `aws-cis-1.5.json`,
+`azure-cis-2.0.json`, and `gcp-cis-1.3.json`. Supply a customer baseline with
+`--baseline` to override thresholds, override per-control severity, or mark
+controls not-applicable.
 
 ## Safety
 
-- **Read-only guardrail.** `csaf/clouds/aws/session.py` wraps every boto3 client
-  so only non-mutating operations (`describe_*`, `list_*`, `get_*`, `head_*`, and
-  read-only `simulate_*`) can be called; anything else raises `ReadOnlyViolation`.
-- **Scope enforcement.** The runner refuses to assess an account that is not in
-  the engagement's `authorizedAccounts`.
+- **Read-only guardrails.** Every provider enforces read-only access at runtime,
+  independent of the IAM policy in use; violations raise `ReadOnlyViolation`.
+  - AWS: `csaf/clouds/aws/session.py` wraps every boto3 client so only
+    non-mutating operations (`describe_*`, `list_*`, `get_*`, `head_*`, and
+    read-only `simulate_*`) can be called.
+  - Azure: `csaf/clouds/azure/session.py` funnels every ARM REST call through a
+    single choke point that only permits the `GET` verb (this also excludes
+    secret-exposing POST "list" operations such as `listKeys`).
+  - GCP: `csaf/clouds/gcp/session.py` permits `GET` plus an explicit allow-list
+    of read-only POST endpoints (`:getIamPolicy`, `:testIamPermissions`).
+- **Scope enforcement.** The runner refuses to assess an AWS account, Azure
+  subscription, or GCP project that is not in the engagement's
+  `authorizedAccounts`.
 - **Evidence protection.** The manifest proves artifact integrity via SHA-256; it
   does not encrypt evidence. Store outputs on an access-controlled, encrypted
   volume. Evidence can contain sensitive IAM and configuration data.
@@ -178,10 +244,10 @@ or mark controls not-applicable.
 │   ├── logging_.py              # console + JSONL logging
 │   ├── remediation.py           # remediation guidance by control
 │   ├── runner.py                # orchestration + exit-code policy
-│   ├── selfcheck.py             # offline synthetic provider
-│   └── clouds/aws/              # AWS provider, read-only session, modules
-├── controls/control-catalog.json
-├── baselines/aws-cis-1.5.json
+│   ├── selfcheck.py             # offline synthetic provider (per cloud)
+│   └── clouds/                  # aws/, azure/, gcp/ providers + read-only sessions + modules
+├── controls/                    # control-catalog{,-azure,-gcp}.json
+├── baselines/                   # aws-cis-1.5, azure-cis-2.0, gcp-cis-1.3
 ├── schemas/                     # finding / control-result / engagement / manifest
 ├── tests/                       # unit + end-to-end tests
 ├── reference/                   # original red-team docs (reference-only)
@@ -212,11 +278,15 @@ python3 invoke_assessment.py --self-check --output-dir out
 
 Add a provider package under `csaf/clouds/<cloud>/` that exposes an
 `evaluate(controls, regions)` method returning `ControlResult` objects, add a
-matching control catalog, and register it in the runner. The core (engagement,
-coverage, findings, reporting, manifest) is cloud-agnostic and reused as-is.
+matching control catalog and baseline, and register the cloud in
+`csaf/runner.py`'s `CLOUDS` table. The Azure and GCP providers are compact
+references for the pattern: a guarded read-only session, a module registry, and
+a provider that dispatches catalog controls to check methods. The core
+(engagement, coverage, findings, reporting, manifest) is cloud-agnostic and
+reused as-is.
 
 ## Authorized use
 
-CSAF is for authorized security assessments only. Run it against accounts you
-own or are explicitly authorized to assess, using least-privilege read-only
-credentials, and protect the output directory.
+CSAF is for authorized security assessments only. Run it against accounts,
+subscriptions, or projects you own or are explicitly authorized to assess,
+using least-privilege read-only credentials, and protect the output directory.

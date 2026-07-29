@@ -23,6 +23,12 @@ DEFAULT_THRESHOLDS = {
     "requireGuardDuty": True,
     "requireConfig": True,
     "requireKmsKeyRotation": True,
+    # Azure
+    "subscriptionOwnerMaxCount": 3,
+    "requiredDefenderPlans": ["VirtualMachines", "StorageAccounts", "SqlServers"],
+    # GCP
+    "saKeyMaxAgeDays": 90,
+    "kmsRotationMaxDays": 90,
 }
 
 

@@ -52,6 +52,31 @@ class TestSelfCheckRun(unittest.TestCase):
             self.assertEqual(manifest["ArtifactCount"], len(manifest["Artifacts"]))
             self.assertTrue(all(a["SHA256"] for a in manifest["Artifacts"]))
 
+    def test_azure_and_gcp_self_check_pipelines(self):
+        for cloud, label in (("azure", "Azure"), ("gcp", "GCP")):
+            with self.subTest(cloud=cloud), tempfile.TemporaryDirectory() as tmp:
+                config = RunConfig(
+                    profile="Assessment",
+                    cloud=cloud,
+                    catalog_path=str(REPO / "controls" / f"control-catalog-{cloud}.json"),
+                    baseline_path=str(
+                        REPO / "baselines" / ("azure-cis-2.0.json" if cloud == "azure" else "gcp-cis-1.3.json")
+                    ),
+                    output_dir=tmp,
+                    self_check=True,
+                    log_level="ERROR",
+                )
+                result = run_assessment(config)
+
+                # OPS-001 is NotTested in each demo posture -> incomplete coverage.
+                self.assertEqual(result.exit_code, EXIT_INCOMPLETE)
+                self.assertGreater(result.finding_count, 0)
+
+                tech = json.loads((Path(tmp) / "technical-report.json").read_text())
+                self.assertEqual(tech["Context"]["cloud"], label)
+                results = [json.loads(line) for line in (Path(tmp) / "control-results.jsonl").read_text().splitlines()]
+                self.assertTrue(all(r["Cloud"] == label for r in results))
+
     def test_findings_are_subset_of_failed_review(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = RunConfig(
