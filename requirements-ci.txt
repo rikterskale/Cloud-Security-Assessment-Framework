@@ -1,4 +1,4 @@
-ruff>=0.5
+ruff>=0.16.0
 pip-audit>=2.7
 jsonschema>=4.20
 coverage>=7.4
