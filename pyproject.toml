@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     "boto3>=1.34,<2.0",
-    "botocore>=1.34,<2.0",
+    "botocore>=1.43.59,<2.0",
 ]
 
 [project.optional-dependencies]
