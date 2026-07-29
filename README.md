@@ -625,6 +625,7 @@ python3 invoke_assessment.py --self-check --output-dir out
 ├── tests/                       # unit + integration + end-to-end tests (see Testing)
 │   └── fakes.py                 # shared FakeClient/FakeSession/make_ctx doubles
 ├── reference/                   # original red-team docs (reference-only)
+├── docs/test-execution/         # per-cloud test execution reports (unit tests + self-check evidence)
 └── .github/workflows/ci.yml
 ```
 
