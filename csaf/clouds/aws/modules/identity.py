@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import datetime
 import io
-import json
 import time
 
 from ...base import AssessmentModule, CheckContext
@@ -312,11 +311,14 @@ def _all_actions(document: dict) -> set[str]:
 
 
 def _wildcard_match(pattern: str, action: str) -> bool:
+    """IAM-style wildcard match: 'iam:Pass*' matches 'iam:PassRole' (case-insensitive)."""
     if "*" not in pattern:
         return False
-    service_glob = pattern.split(":", 1)[0]
-    service_action = action.split(":", 1)[0]
-    if service_glob not in ("*", service_action):
+    if pattern == "*":
+        return True
+    pattern_service, _, pattern_action = pattern.partition(":")
+    action_service, _, action_name = action.partition(":")
+    if pattern_service.lower() not in ("*", action_service.lower()):
         return False
-    prefix = pattern.rstrip("*")
-    return action.startswith(prefix.split(":", 1)[-1]) or json.dumps(pattern) == json.dumps(action)
+    prefix = pattern_action.split("*", 1)[0].lower()
+    return action_name.lower().startswith(prefix)

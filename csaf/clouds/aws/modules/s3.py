@@ -74,9 +74,12 @@ class S3Module(AssessmentModule):
             except Exception as exc:  # noqa: BLE001
                 if "ServerSideEncryptionConfigurationNotFoundError" in str(exc):
                     offenders.append(name)
-                # other errors surface as module-level exception -> Error
                 elif "AccessDenied" in str(exc):
                     offenders.append(f"{name}(access-denied)")
+                else:
+                    # Unexpected errors surface as a module-level Error result,
+                    # never as a silent pass for the affected bucket.
+                    raise
         if not offenders:
             return self.result(control, ctx, "Pass", "All buckets have default encryption.")
         return [

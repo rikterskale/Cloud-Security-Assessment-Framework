@@ -20,18 +20,43 @@ and CIS-aligned baseline.
 > under [`reference/`](reference/) and are **reference-only**. CSAF itself is a
 > defensive, read-only assessment tool.
 
+## Table of contents
+
+- [Design invariants](#design-invariants)
+- [Quick start](#quick-start)
+- [Authorization profiles](#authorization-profiles)
+- [Exit codes](#exit-codes)
+- [Architecture and data flow](#architecture-and-data-flow)
+- [Coverage semantics](#coverage-semantics)
+- [Control catalog](#control-catalog)
+- [Baselines](#baselines)
+- [Engagement authorization](#engagement-authorization)
+- [Output artifacts](#output-artifacts)
+- [Safety](#safety)
+- [Testing](#testing)
+- [Continuous integration](#continuous-integration)
+- [Repository layout](#repository-layout)
+- [Extending to other clouds](#extending-to-other-clouds)
+- [Authorized use](#authorized-use)
+
 ## Design invariants
 
-These mirror the sibling Active Directory assessment framework:
+These mirror the sibling Active Directory assessment framework, and each one is
+pinned by unit tests (see [Testing](#testing)):
 
 - **One status per selected control** — `Pass`, `Fail`, `Review`,
   `NotApplicable`, `NotTested`, or `Error`.
 - **Execution errors are not security passes.** `NotTested` and `Error` never
-  produce a finding and never count as coverage.
+  produce a finding, never count as coverage, and never contribute to the risk
+  score. A check that raises an exception is converted into a single `Error`
+  result by the module dispatcher (`csaf/clouds/base.py`) — it can never
+  silently vanish or be recorded as a pass.
 - **Findings are a strict subset of control results**, derived only from `Fail`
-  and `Review` states, with stable object-aware finding IDs.
+  and `Review` states, with stable object-aware finding IDs
+  (`F-<16 hex chars>` over cloud|account|region|control|resource).
 - **Coverage is tracked separately from findings.** An empty findings list does
-  not prove a clean, fully-executed assessment.
+  not prove a clean, fully-executed assessment. The executive summary renders a
+  warning banner whenever coverage is incomplete.
 
 ## Quick start
 
@@ -114,7 +139,22 @@ python3 invoke_assessment.py \
 
 The run refuses to start unless the engagement sets
 `activeValidationApproved: true` and the current time is inside its window. See
-[`schemas/engagement.example.json`](schemas/engagement.example.json).
+[`schemas/engagement.example.json`](schemas/engagement.example.json) and the
+matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
+
+### CLI reference
+
+| Flag | Default | Purpose |
+|---|---|---|
+| `--profile` | `Assessment` | Authorization profile (`Inventory`, `Assessment`, `Validation`, `AdversarySimulation`) |
+| `--regions` | `us-east-1` | Regions evaluated by per-region controls (space-separated) |
+| `--catalog` | `controls/control-catalog.json` | Control catalog path |
+| `--baseline` | `baselines/aws-cis-1.5.json` | Threshold/override baseline path |
+| `--engagement` | none | Engagement authorization file (required for `Validation`) |
+| `--aws-profile` | none | Named AWS credentials profile (read-only) |
+| `--output-dir` | `csaf-output` | Directory for reports and evidence |
+| `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
+| `--self-check` | off | Offline run with synthetic data, no cloud calls |
 
 ## Authorization profiles
 
@@ -125,36 +165,81 @@ The run refuses to start unless the engagement sets
 | `Validation` | yes | Adds non-destructive policy validation controls | Requires approved, in-window engagement |
 | `AdversarySimulation` | yes | Requires explicit approval; framework stays read-only | Requires approved, in-window engagement |
 
+Validation-only controls (marked `validationOnly` in the catalog) are excluded
+from `Inventory` and `Assessment` selections.
+
 ## Exit codes
 
 - `0` — all selected controls executed, no execution errors.
 - `2` — completed, but one or more selected controls were `NotTested` or errored
   (`CompletedWithErrors`). Inspect `coverage-report.csv`.
 - `1` — fatal runner or prerequisite failure (e.g. unauthorized profile, account
-  outside the engagement scope).
+  outside the engagement scope, unreadable catalog or baseline). Fatal failures
+  are returned as an exit code with a logged reason — never an unhandled
+  traceback.
 
-## Output
+## Architecture and data flow
 
 ```text
-out/
-├── assessment-<ts>.log          # human-readable log
-├── assessment-<ts>.jsonl        # structured JSON Lines log
-├── control-results.jsonl        # every control result (schema 3.0)
-├── control-results.csv
-├── findings.csv                 # prioritized findings only
-├── findings.json
-├── coverage-report.json         # executed/pass/fail/not-tested/error + not-tested IDs
-├── coverage-report.csv
-├── remediation-roadmap.csv      # prioritized, horizon-bucketed remediation
-├── technical-report.json        # full structured results + findings + compliance
-├── executive-summary.html       # severity + coverage + compliance rollup
-├── manifest.json                # SHA-256 of every artifact
-└── evidence/                    # raw collector evidence (e.g. credential report)
+invoke_assessment.py (CLI)
+        │  argparse -> RunConfig
+        ▼
+csaf/runner.py (orchestration + exit-code policy)
+        │
+        ├─ catalog.py      loads controls/control-catalog.json, filters by profile
+        ├─ baseline.py     merges customer thresholds over defaults,
+        │                  applies severity overrides + not-applicable exclusions
+        ├─ engagement.py   authorizes the profile, scope, and time window
+        │
+        ├─ selfcheck.py    (offline) deterministic synthetic results
+        │     — or —
+        ├─ clouds/aws/provider.py
+        │       │  groups controls by module; global modules (identity, s3)
+        │       │  run once, regional modules (compute, network, logging,
+        │       │  kms, rds) run per authorized region; attestation controls
+        │       │  are answered from the engagement file
+        │       ▼
+        │  clouds/base.py AssessmentModule.evaluate()
+        │       │  dispatches control.check to the module method;
+        │       │  any exception -> one Error result (never a pass)
+        │       ▼
+        │  clouds/aws/modules/*.py  check functions
+        │       │  every AWS call goes through clouds/aws/session.py
+        │       │  ReadOnlyClient (mutating verbs raise ReadOnlyViolation)
+        │       ▼
+        │  ControlResult objects (model.py, schema 3.0)
+        │
+        ├─ model.py        findings derived from Fail/Review results only
+        ├─ coverage.py     per-control rollup + weighted risk score
+        ├─ compliance.py   CIS / NIST / MITRE rollup from control mappings
+        ├─ reporting.py    JSONL/CSV/JSON/HTML artifacts
+        └─ evidence.py     raw evidence store + SHA-256 manifest
 ```
 
-Start with `coverage-report.csv` to confirm every selected control ran, then
-`findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never
-security passes.
+Key components:
+
+- **`csaf/model.py`** — controlled vocabularies (statuses, severities,
+  confidences), `ControlResult`, `Finding`, deterministic finding IDs, and the
+  `finding_from_result` normalisation (`Review` findings are floored at
+  `MEDIUM` because an unconfirmed weakness is not dismissible).
+- **`csaf/clouds/base.py`** — the module dispatcher. A check may return one
+  result, a list of per-resource results, or `None`; anything it raises becomes
+  a single `Error` result. `Pass`/`NotApplicable`/`NotTested` results are
+  forced to `INFO` severity so passing controls never inflate risk.
+- **`csaf/clouds/aws/session.py`** — `ReadOnlyClient` proxy allowing only
+  non-mutating operations (`describe_*`, `list_*`, `get_*`, `head_*`,
+  `lookup_*`, `batch_get_*`, credential-report generation, and read-only
+  `simulate_*`); everything else raises `ReadOnlyViolation`. Paginators are
+  guarded the same way.
+- **`csaf/clouds/aws/provider.py`** — orchestrates modules across regions with
+  a shared per-scope cache (the credential report, bucket list, instance and
+  trail inventories are each collected once per scope, then reused by every
+  check in that scope).
+
+## Coverage semantics
+
+A control may produce many results (one per resource, one per region). Coverage
+rolls them up to a single status per control using a dominance ranking:
 
 ## Control coverage
 
@@ -199,9 +284,189 @@ and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 | KMS / Cloud SQL | CMEK rotation; Cloud SQL not open to world, TLS required |
 | Operations | Break-glass procedure (operator attestation) |
 
+Each catalog entry declares its `module` (implementation class), `check`
+(method name), `defaultSeverity`, `expectedState`, `profiles`, and framework
+`mappings`. A catalog-integrity test verifies every entry resolves to a real,
+callable check and has a remediation entry, so the catalog cannot drift from
+the code.
+
+Notable check behaviours:
+
+- The privilege-escalation check flags grants of known privesc-enabling
+  actions (Rhino Security Labs matrix) including **wildcard grants** such as
+  `iam:Pass*` or `iam:Attach*` (matched case-insensitively, IAM-style). Full
+  `Action:*` admin policies are excluded there — they are flagged separately by
+  the `*`-admin control.
+- The S3 encryption check treats `AccessDenied` on a bucket as an offender
+  (an unverifiable bucket is not assumed encrypted); any *unexpected* error
+  aborts the check into an `Error` result rather than skipping the bucket.
+- Attestation controls (e.g. break-glass procedure) are answered from the
+  engagement file's `attestations` map; a missing attestation is `NotTested`,
+  an unrecognized attested status is coerced to `Review`, and attestation
+  confidence is always `LOW`.
+
 ## Baselines
 
 Thresholds (password length, key age, sensitive ports, required services) live
+in [`baselines/aws-cis-1.5.json`](baselines/aws-cis-1.5.json). Supply a
+customer baseline with `--baseline` to:
+
+- **override thresholds** — customer values merge over the defaults in
+  `csaf/baseline.py`, untouched keys keep their defaults;
+- **override per-control severity** — `severityOverrides` maps control IDs to a
+  severity applied to that control's findings;
+- **exclude controls** — IDs in `notApplicableControls` are removed from the
+  selection before evaluation (they do not appear in results or coverage
+  denominators).
+
+## Engagement authorization
+
+The engagement file ([schema](schemas/engagement.schema.json),
+[example](schemas/engagement.example.json)) binds a run to an authorized scope:
+
+- `authorizedAccounts` — the runner refuses (exit `1`) to assess an account not
+  listed; an empty list means unscoped.
+- `windowStartUtc` / `windowEndUtc` — `Validation` and `AdversarySimulation`
+  refuse to run outside the window.
+- `activeValidationApproved` — must be `true` for `Validation` /
+  `AdversarySimulation`; `Inventory` and `Assessment` never require it.
+- `attestations` — operator-supplied answers for manual controls.
+- `stopConditions` / `prohibitedActions` / `operatorContacts` — recorded for
+  the engagement record.
+
+## Output artifacts
+
+```text
+out/
+├── assessment-<ts>.log          # human-readable log
+├── assessment-<ts>.jsonl        # structured JSON Lines log (ts, runId, level, component, message)
+├── control-results.jsonl        # every control result (schema 3.0), one JSON object per line
+├── control-results.csv
+├── findings.csv                 # prioritized findings only (CRITICAL first)
+├── findings.json
+├── coverage-report.json         # executed/pass/fail/not-tested/error + NotTestedControls IDs
+├── coverage-report.csv
+├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding
+├── technical-report.json        # context + coverage + risk + compliance + all results + findings
+├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped)
+├── manifest.json                # SHA-256 of every artifact
+└── evidence/                    # raw collector evidence (e.g. credential report), namespaced
+```
+
+Start with `coverage-report.csv` to confirm every selected control ran, then
+`findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never
+security passes.
+
+Every emitted control result and finding conforms to the JSON Schemas in
+[`schemas/`](schemas/) (`control-result.schema.json`, `finding.schema.json`) —
+this is enforced by tests against a full pipeline run, not just hand-picked
+examples. The manifest records `RelativePath` with forward slashes on every
+platform, hashes every artifact except itself, and can be re-verified at any
+time by recomputing SHA-256 over the files it lists.
+
+## Safety
+
+- **Read-only guardrail.** `csaf/clouds/aws/session.py` wraps every boto3
+  client so only non-mutating operations can be called; anything else raises
+  `ReadOnlyViolation` (a `RuntimeError` subclass, so even broad `except
+  RuntimeError` handlers stop the call). The guard is enforced at the proxy
+  layer *in addition to* the read-only IAM policy the operator is expected to
+  use — defence in depth.
+- **Scope enforcement.** The runner refuses to assess an account that is not in
+  the engagement's `authorizedAccounts`.
+- **Evidence protection.** The manifest proves artifact integrity via SHA-256;
+  it does not encrypt evidence. Store outputs on an access-controlled,
+  encrypted volume. Evidence can contain sensitive IAM and configuration data.
+- **Report safety.** All untrusted values (finding titles, resource IDs,
+  remediation text) are HTML-escaped before rendering into the executive
+  summary.
+
+## Testing
+
+The suite (~180 tests, standard-library `unittest`, no cloud credentials and no
+boto3 required) is designed around the framework's safety invariants: every
+"never" in this README has a test asserting it.
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+With line coverage (CI enforces >= 90% over `csaf/` + the CLI):
+
+```bash
+python3 -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests
+python3 -m coverage report --show-missing
+```
+
+### Test layout
+
+| File | Covers |
+|---|---|
+| `tests/fakes.py` | Shared test doubles: `FakeClient`/`FakeSession` (canned per-operation responses, paginators, call recording) and `make_ctx` for building real `CheckContext` objects |
+| `test_model.py` | Status/severity vocabularies, finding derivation, deterministic object-aware finding IDs |
+| `test_coverage.py` | Rollup dominance (`Error` > `Fail` > `Review` > `Pass`), missing-result -> `NotTested`, risk-score rating boundaries, `Error`/`NotTested` never contribute risk |
+| `test_catalog.py` / `test_catalog_integrity.py` | Catalog loading, unique IDs, profile filtering, every control resolves to a real check and remediation |
+| `test_engagement.py` | Profile authorization, approval + window requirements, account scoping |
+| `test_baseline.py` | Threshold merging, severity overrides, not-applicable parsing, the shipped CIS baseline |
+| `test_readonly.py` | Guardrail verb sweep (27 mutating operations blocked, 10 read verbs allowed), paginator guard, attribute passthrough |
+| `test_base_module.py` | Dispatcher: exceptions -> single `Error` result, missing checks -> `Error`, severity normalisation, baseline overrides, metadata propagation |
+| `test_provider.py` | Global vs per-region dispatch, unknown modules -> `NotTested`, one region erroring doesn't stop others, attestation handling |
+| `test_module_identity.py` | Credential-report checks (root MFA/keys/activity, user MFA, key rotation boundaries, unused credentials), password policy, `*`-admin and privesc policy analysis, IAM wildcard matching |
+| `test_module_s3.py` | Public-access block, policy- and ACL-public buckets, encryption (`AccessDenied` counts as an offender; unexpected errors raise), TLS-only policies, bucket-list caching |
+| `test_module_compute.py` | `_covered_ports`/`_has_public_cidr` tables, IMDSv2, EBS default encryption, public-instance exposure, inventory caching |
+| `test_module_network.py` | Admin-port ingress (incl. custom baseline ports), default-SG rules, VPC flow logs |
+| `test_module_kms_rds.py` | KMS rotation (only enabled customer symmetric keys evaluated), RDS encryption and public access |
+| `test_module_logging.py` | CloudTrail multi-region/validation/KMS, Config recorder, GuardDuty detectors, trail caching |
+| `test_compliance.py` | Framework rollup: evaluated/passed/failed counting, `Error`/`NotTested` excluded, unknown prefixes ignored |
+| `test_evidence.py` | SHA-256 known vector, namespaced evidence store, manifest completeness, forward-slash paths, tamper detection |
+| `test_reporting.py` | CSV/JSONL row integrity, severity ordering, remediation horizons, HTML escaping of hostile values, incomplete-coverage banner |
+| `test_runner_selfcheck.py` | End-to-end offline pipeline: all artifacts produced, findings are a strict subset of Fail/Review controls |
+| `test_runner_paths.py` | Unauthorized/out-of-window profiles -> exit `1`, missing catalog / malformed baseline -> fatal result (no traceback), baseline exclusions change selection, fully-executed run -> exit `0`, structured log content |
+| `test_cli.py` | Argument defaults and validation, `--version`, exit-code propagation through `main()` |
+| `test_logging.py` | Level filtering, JSONL structure and extra fields, console-only operation |
+| `test_schema.py` | Every record from a full self-check run validates against the JSON Schemas; manifest hashes re-verify against the artifacts on disk |
+| `test_ci_config.py` | CI workflow keeps its gates (lint, tests, coverage >= 90%, pip-audit, read-all permissions) |
+
+### Testing approach
+
+- **No mocking framework, no network.** AWS check modules receive a
+  `CheckContext` whose `session` is a `tests/fakes.py` `FakeSession` serving
+  canned API responses — checks are exercised byte-for-byte as in production,
+  including evidence writes and baseline threshold lookups. Response values can
+  be per-call callables (e.g. keyed on `Bucket`) or `Exception` instances to
+  simulate API errors.
+- **Invariant pinning.** The dangerous properties — mutating calls blocked,
+  errors never passing, findings a strict subset, coverage never masking an
+  error — each have dedicated tests, so a regression fails loudly.
+- **Schema conformance as a gate.** `test_schema.py` runs the full pipeline and
+  validates *every* emitted record, so the schemas, the dataclasses, and the
+  writers cannot drift apart.
+- **Config guarded by tests.** `test_ci_config.py` fails if a CI gate is
+  removed; `test_catalog_integrity.py` fails if a catalog entry loses its
+  implementation or remediation.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on push, PR, and manual dispatch with read-only
+permissions and these gates:
+
+- Ruff lint and format checks
+- `pip-audit` dependency vulnerability audit
+- Python 3.10 / 3.12 / 3.14 unit-test matrix
+- Line-coverage gate: `coverage report --fail-under=90` over `csaf/` and the CLI
+- Dependency preflight and offline self-check report generation
+
+Run locally:
+
+```bash
+pip install -r requirements.txt -r requirements-ci.txt
+ruff check csaf tests invoke_assessment.py test_dependencies.py
+ruff format --check csaf tests invoke_assessment.py test_dependencies.py
+python3 -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests
+python3 -m coverage report --fail-under=90
+python3 invoke_assessment.py --self-check --output-dir out
+```
+
 per cloud in [`baselines/`](baselines/): `aws-cis-1.5.json`,
 `azure-cis-2.0.json`, and `gcp-cis-1.3.json`. Supply a customer baseline with
 `--baseline` to override thresholds, override per-control severity, or mark
@@ -235,7 +500,7 @@ controls not-applicable.
 ├── csaf/                        # framework package
 │   ├── model.py                 # statuses, control results, findings, IDs
 │   ├── catalog.py               # control catalog + profile filtering
-│   ├── baseline.py              # thresholds
+│   ├── baseline.py              # thresholds, severity overrides, exclusions
 │   ├── engagement.py            # authorization profiles, scope, window
 │   ├── coverage.py              # coverage accounting + risk scoring
 │   ├── compliance.py            # framework rollup from mappings
@@ -254,26 +519,6 @@ controls not-applicable.
 └── .github/workflows/ci.yml
 ```
 
-## Continuous integration
-
-`.github/workflows/ci.yml` runs on push, PR, and manual dispatch with read-only
-permissions and these gates:
-
-- Ruff lint and format checks
-- `pip-audit` dependency vulnerability audit
-- Python 3.10 / 3.12 / 3.14 unit-test matrix
-- Dependency preflight and offline self-check report generation
-
-Run locally:
-
-```bash
-pip install -r requirements.txt -r requirements-ci.txt
-ruff check csaf tests invoke_assessment.py test_dependencies.py
-ruff format --check csaf tests invoke_assessment.py test_dependencies.py
-python3 -m unittest discover -s tests -v
-python3 invoke_assessment.py --self-check --output-dir out
-```
-
 ## Extending to other clouds
 
 Add a provider package under `csaf/clouds/<cloud>/` that exposes an
@@ -284,6 +529,18 @@ references for the pattern: a guarded read-only session, a module registry, and
 a provider that dispatches catalog controls to check methods. The core
 (engagement, coverage, findings, reporting, manifest) is cloud-agnostic and
 reused as-is.
+
+When adding checks:
+
+1. Subclass `AssessmentModule`; each catalog `check` names a method taking
+   `(control, ctx)` and returning a result, a list of per-resource results, or
+   `None`. Raise freely — the dispatcher converts exceptions to `Error`.
+2. Route every API call through a guarded read-only session.
+3. Cache shared inventories in `ctx.cache` so multiple controls don't re-enumerate.
+4. Add a remediation entry in `csaf/remediation.py` and mappings in the catalog
+   (`test_catalog_integrity.py` enforces both).
+5. Test the module with `tests/fakes.py` doubles — pass/fail/`NotApplicable`
+   branches, error propagation, and threshold boundaries.
 
 ## Authorized use
 
