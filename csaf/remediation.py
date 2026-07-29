@@ -31,6 +31,8 @@ REMEDIATION = {
     "CSAF-AWS-KMS-001": "Enable automatic annual rotation on customer-managed symmetric KMS keys.",
     "CSAF-AWS-RDS-001": "Recreate or snapshot-restore RDS instances with storage encryption enabled.",
     "CSAF-AWS-RDS-002": "Set PubliclyAccessible=false and place RDS instances in private subnets.",
+    "CSAF-AWS-SEC-001": "Enable automatic rotation on every Secrets Manager secret that supports it.",
+    "CSAF-AWS-SEC-002": "Re-encrypt Secrets Manager secrets with a customer-managed KMS key instead of the default key.",
     "CSAF-AWS-OPS-001": "Document and periodically test a break-glass procedure for root and privileged access.",
     # --- Azure ---------------------------------------------------------------
     "CSAF-AZ-IAM-001": "Delete custom RBAC roles granting Actions:* at subscription scope; use built-in least-privilege roles.",

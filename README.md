@@ -273,7 +273,7 @@ The weighted risk score counts `Fail`/`Review` results by severity
 Each control maps to the relevant CIS Foundations benchmark, NIST SP 800-53,
 and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 
-### AWS — 29 controls ([`control-catalog.json`](controls/control-catalog.json))
+### AWS — 31 controls ([`control-catalog.json`](controls/control-catalog.json))
 
 | Category | Example controls |
 |---|---|
@@ -284,6 +284,7 @@ and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 | Network | Admin-port ingress from `0.0.0.0/0`, default SG restricted, VPC flow logs |
 | Logging / detection | Multi-region CloudTrail, log validation, KMS encryption, Config, GuardDuty |
 | KMS / RDS | Customer-managed key rotation; RDS encryption at rest, public accessibility |
+| Secrets | Secrets Manager rotation enabled, customer-managed KMS encryption |
 | Operations | Break-glass procedure (operator attestation) |
 
 ### Azure — 16 controls ([`control-catalog-azure.json`](controls/control-catalog-azure.json))

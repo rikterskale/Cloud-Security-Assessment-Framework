@@ -9,7 +9,7 @@ from .modules import MODULE_REGISTRY
 # Modules whose APIs are account-global; evaluated once.
 GLOBAL_MODULES = {"identity", "s3"}
 # Modules evaluated per authorized region.
-REGIONAL_MODULES = {"compute", "network", "logging", "kms", "rds"}
+REGIONAL_MODULES = {"compute", "network", "logging", "kms", "rds", "secrets"}
 
 
 class AwsProvider:

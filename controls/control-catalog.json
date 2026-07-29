@@ -347,6 +347,30 @@
       "references": []
     },
     {
+      "id": "CSAF-AWS-SEC-001",
+      "title": "Secrets Manager secrets have rotation enabled",
+      "category": "Secrets",
+      "module": "secrets",
+      "check": "secret_rotation_enabled",
+      "defaultSeverity": "MEDIUM",
+      "expectedState": "Every Secrets Manager secret has automatic rotation enabled.",
+      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
+      "mappings": ["CIS-AWS:2.3.4", "NIST-800-53:IA-5", "MITRE:T1552.001"],
+      "references": ["https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets.html"]
+    },
+    {
+      "id": "CSAF-AWS-SEC-002",
+      "title": "Secrets Manager secrets use a customer-managed KMS key",
+      "category": "Secrets",
+      "module": "secrets",
+      "check": "secret_cmk_encryption",
+      "defaultSeverity": "LOW",
+      "expectedState": "Every Secrets Manager secret is encrypted with a customer-managed KMS key, not the default AWS-managed key.",
+      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
+      "mappings": ["NIST-800-53:SC-28"],
+      "references": ["https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html"]
+    },
+    {
       "id": "CSAF-AWS-OPS-001",
       "title": "Account break-glass procedure is documented",
       "category": "Operations",
