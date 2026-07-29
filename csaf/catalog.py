@@ -70,12 +70,18 @@ class Catalog:
         """Controls selected for a profile.
 
         Validation-only controls are excluded from Assessment and Inventory.
+        AdversarySimulation further narrows Validation's set to only controls
+        mapped to a MITRE ATT&CK technique: it exists to prioritize what an
+        adversary-emulation exercise cares about, not to duplicate Validation
+        under a different name.
         """
         if profile not in VALID_PROFILES:
             raise ValueError(f"Unknown profile: {profile!r}")
         selected = [c for c in self.controls if profile in c.profiles]
         if profile in ("Inventory", "Assessment"):
             selected = [c for c in selected if not c.validation_only]
+        if profile == "AdversarySimulation":
+            selected = [c for c in selected if any(m.startswith("MITRE:") for m in c.mappings)]
         return selected
 
     def by_module(self, controls: list[Control]) -> dict[str, list[Control]]:

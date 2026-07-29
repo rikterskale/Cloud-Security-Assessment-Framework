@@ -172,10 +172,16 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `Inventory` | yes | Collects config; issues few conclusions | None |
 | `Assessment` | yes | Default posture assessment | None |
 | `Validation` | yes | Adds non-destructive policy validation controls | Requires approved, in-window engagement |
-| `AdversarySimulation` | yes | Requires explicit approval; framework stays read-only | Requires approved, in-window engagement |
+| `AdversarySimulation` | yes | Validation's control set, narrowed to only MITRE ATT&CK-mapped controls | Requires approved, in-window engagement |
 
 Validation-only controls (marked `validationOnly` in the catalog) are excluded
-from `Inventory` and `Assessment` selections.
+from `Inventory` and `Assessment` selections. `AdversarySimulation` is not an
+alias of `Validation`: `Catalog.for_profile()` further filters its selection
+to controls carrying at least one `MITRE:` mapping, so a run prioritizes
+exactly the controls relevant to attacker tradecraft rather than duplicating
+`Validation`'s full set under a different name. The framework itself stays
+identically read-only under both profiles — only the *selected controls*
+differ.
 
 ## Exit codes
 
