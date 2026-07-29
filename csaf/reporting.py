@@ -128,6 +128,21 @@ def write_remediation_roadmap(findings: list[Finding], out_dir: Path) -> None:
             )
 
 
+def write_detection_coverage(rows: list[dict], out_dir: Path) -> None:
+    json_path = out_dir / "detection-coverage.json"
+    with open(json_path, "w", encoding="utf-8") as handle:
+        json.dump(rows, handle, indent=2)
+
+    csv_path = out_dir / "detection-coverage.csv"
+    with open(csv_path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["Technique", "Status", "ControlIds", "GapControlIds"])
+        for row in rows:
+            writer.writerow(
+                [row["Technique"], row["Status"], ";".join(row["ControlIds"]), ";".join(row["GapControlIds"])]
+            )
+
+
 def write_technical_report(
     results: list[ControlResult],
     findings: list[Finding],
@@ -136,6 +151,7 @@ def write_technical_report(
     compliance: dict,
     context: dict,
     out_dir: Path,
+    detection_coverage: list[dict] | None = None,
 ) -> None:
     payload = {
         "SchemaVersion": "3.0",
@@ -145,6 +161,7 @@ def write_technical_report(
         "Coverage": coverage.to_dict(),
         "Risk": risk,
         "Compliance": compliance,
+        "DetectionCoverage": detection_coverage or [],
         "ControlResults": [r.to_dict() for r in results],
         "Findings": [f.to_dict() for f in findings],
     }
@@ -160,8 +177,13 @@ def write_executive_html(
     context: dict,
     out_dir: Path,
     delta=None,
+    detection_coverage=None,
 ) -> None:
     sev = risk["severity_counts"]
+    gap_count = sum(1 for row in (detection_coverage or []) if row["Status"] == "Gap")
+    gap_card = ""
+    if detection_coverage is not None:
+        gap_card = f'<div class="card critical"><div class="num">{gap_count}</div><div class="label">ATT&amp;CK Technique Gaps</div></div>'
     ordered = sorted(findings, key=lambda f: (REMEDIATION_ORDER.get(f.severity, 9), -f.risk_score))
 
     delta_banner = ""
@@ -169,7 +191,7 @@ def write_executive_html(
         summary = delta.to_summary()
         delta_banner = (
             f'<div class="banner delta">Delta vs previous run: {summary["new"]} new, '
-            f'{summary["persisted"]} persisted, {summary["resolved"]} resolved.</div>'
+            f"{summary['persisted']} persisted, {summary['resolved']} resolved.</div>"
         )
 
     rows = ""
@@ -244,6 +266,7 @@ tr.medium td:first-child{{color:#eab308}}tr.low td:first-child{{color:#22c55e}}
 <div class="card"><div class="num">{coverage.passed}</div><div class="label">Passed</div></div>
 <div class="card"><div class="num">{coverage.not_tested}</div><div class="label">Not Tested</div></div>
 <div class="card"><div class="num">{coverage.error}</div><div class="label">Errors</div></div>
+{gap_card}
 </div>
 <h2>Compliance Rollup</h2>
 <table><thead><tr><th>Framework</th><th>Passed / Evaluated</th><th>Pass Rate</th></tr></thead>

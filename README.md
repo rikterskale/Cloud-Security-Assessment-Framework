@@ -392,6 +392,8 @@ out/
 ├── findings.csv                 # prioritized findings only (CRITICAL first)
 ├── findings.json
 ├── findings-resolved.json       # only written with --previous-findings: prior findings absent from this run
+├── detection-coverage.json      # per-MITRE-technique rollup: Gap / Covered / Unknown
+├── detection-coverage.csv
 ├── coverage-report.json         # executed/pass/fail/not-tested/error + NotTestedControls IDs
 ├── coverage-report.csv
 ├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding

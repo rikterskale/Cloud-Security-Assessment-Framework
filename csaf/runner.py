@@ -19,6 +19,7 @@ from .catalog import Catalog
 from .compliance import rollup
 from .coverage import compute_coverage, compute_risk_score
 from .delta import compute_delta
+from .detection_coverage import compute_detection_coverage
 from .engagement import Engagement
 from .evidence import EvidenceStore, write_manifest
 from .logging_ import AssessmentLogger
@@ -27,6 +28,7 @@ from .remediation import remediation_for
 from .reporting import (
     write_control_results,
     write_coverage,
+    write_detection_coverage,
     write_executive_html,
     write_findings,
     write_remediation_roadmap,
@@ -179,6 +181,7 @@ def run_assessment(config: RunConfig) -> RunResult:
         not_tested_ids = sorted(selected_ids - evaluated_by_control)
         risk = compute_risk_score(results)
         compliance = rollup(results)
+        detection_coverage = compute_detection_coverage(results)
 
         context = {
             "runId": run_id,
@@ -198,8 +201,13 @@ def run_assessment(config: RunConfig) -> RunResult:
         write_findings(findings, out_dir, delta=delta)
         write_coverage(coverage, not_tested_ids, out_dir)
         write_remediation_roadmap(findings, out_dir)
-        write_technical_report(results, findings, coverage, risk, compliance, context, out_dir)
-        write_executive_html(findings, coverage, risk, compliance, context, out_dir, delta=delta)
+        write_detection_coverage(detection_coverage, out_dir)
+        write_technical_report(
+            results, findings, coverage, risk, compliance, context, out_dir, detection_coverage=detection_coverage
+        )
+        write_executive_html(
+            findings, coverage, risk, compliance, context, out_dir, delta=delta, detection_coverage=detection_coverage
+        )
         write_manifest(out_dir, cloud_label, account_id, config.profile)
 
         # Report any selected control that did not complete.
