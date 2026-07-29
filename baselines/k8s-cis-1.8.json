@@ -1,0 +1,10 @@
+{
+  "baselineId": "k8s-cis-1.8",
+  "title": "CIS Kubernetes Benchmark v1.8 aligned baseline",
+  "cloud": "K8s",
+  "version": "2026.1",
+  "description": "Threshold values consumed by CSAF Kubernetes check functions. Customer baselines may override any key.",
+  "thresholds": {},
+  "severityOverrides": {},
+  "notApplicableControls": []
+}

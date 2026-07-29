@@ -37,12 +37,20 @@ _DEMO_STATUS = {
         "CSAF-GCP-IAM-004": ("Review", "user:dev@example.com holds basic role roles/editor"),
         "CSAF-GCP-OPS-001": ("NotTested", "No operator attestation supplied."),
     },
+    "K8s": {
+        "CSAF-K8S-RBAC-001": ("Fail", "User 'alice' is bound to cluster-admin via demo-admin-binding"),
+        "CSAF-K8S-POD-001": ("Fail", "container 'app' runs privileged in pod default/legacy-app"),
+        "CSAF-K8S-POD-002": ("Fail", "pod default/host-net-debug uses hostNetwork"),
+        "CSAF-K8S-NET-001": ("Fail", "namespace has no NetworkPolicy: default"),
+        "CSAF-K8S-OPS-001": ("NotTested", "No operator attestation supplied."),
+    },
 }
 
 _DEMO_ACCOUNT = {
     "AWS": "000000000000",
     "Azure": "00000000-0000-0000-0000-000000000000",
     "GCP": "csaf-selfcheck-project",
+    "K8s": "csaf-selfcheck-cluster",
 }
 
 

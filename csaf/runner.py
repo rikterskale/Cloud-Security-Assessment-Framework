@@ -56,6 +56,11 @@ CLOUDS = {
         "catalog": "controls/control-catalog-gcp.json",
         "baseline": "baselines/gcp-cis-1.3.json",
     },
+    "k8s": {
+        "label": "K8s",
+        "catalog": "controls/control-catalog-k8s.json",
+        "baseline": "baselines/k8s-cis-1.8.json",
+    },
 }
 
 
@@ -73,6 +78,8 @@ class RunConfig:
     aws_profile: str | None = None
     subscription_id: str | None = None
     project_id: str | None = None
+    kube_context: str | None = None
+    kubeconfig_path: str | None = None
     max_workers: int = 1
     log_level: str = "INFO"
     self_check: bool = False
@@ -156,13 +163,20 @@ def run_assessment(config: RunConfig) -> RunResult:
                 session = ArmSession(subscription_id=config.subscription_id)
                 account_id = session.subscription_id
                 scope_note = f"subscription {account_id}"
-            else:
+            elif config.cloud == "gcp":
                 from .clouds.gcp.provider import GcpProvider as Provider
                 from .clouds.gcp.session import GcpSession
 
                 session = GcpSession(project_id=config.project_id)
                 account_id = session.project_id
                 scope_note = f"project {account_id}"
+            else:
+                from .clouds.k8s.provider import K8sProvider as Provider
+                from .clouds.k8s.session import K8sSession
+
+                session = K8sSession(kubeconfig_path=config.kubeconfig_path, context=config.kube_context)
+                account_id = session.cluster_context
+                scope_note = f"cluster context {account_id}"
 
             if not engagement.account_authorized(account_id):
                 logger.error("engagement", f"Account {account_id} is not in the authorized scope.")

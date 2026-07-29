@@ -53,6 +53,7 @@ def main() -> int:
         "azure.identity": "needed for live Azure assessment (pip install -r requirements-azure.txt)",
         "google.auth": "needed for live GCP assessment (pip install -r requirements-gcp.txt)",
         "requests": "needed for live Azure/GCP assessment",
+        "kubernetes": "needed for live Kubernetes assessment (pip install -r requirements-k8s.txt)",
     }
     for module, note in optional.items():
         found = _find(module)
@@ -64,7 +65,12 @@ def main() -> int:
         )
 
     root = Path(__file__).parent
-    for name in ("control-catalog.json", "control-catalog-azure.json", "control-catalog-gcp.json"):
+    for name in (
+        "control-catalog.json",
+        "control-catalog-azure.json",
+        "control-catalog-gcp.json",
+        "control-catalog-k8s.json",
+    ):
         catalog = root / "controls" / name
         ok_catalog = catalog.exists()
         _, ok = _check(f"{name} present", ok_catalog, str(catalog), required=True)
@@ -78,7 +84,7 @@ def main() -> int:
                 _, ok = _check(f"{name} parses", False, str(exc), required=True)
                 all_required_ok &= ok
 
-    for name in ("aws-cis-1.5.json", "azure-cis-2.0.json", "gcp-cis-1.3.json"):
+    for name in ("aws-cis-1.5.json", "azure-cis-2.0.json", "gcp-cis-1.3.json", "k8s-cis-1.8.json"):
         baseline = root / "baselines" / name
         _check(f"baseline {name} present (optional)", baseline.exists(), str(baseline), required=False)
 
