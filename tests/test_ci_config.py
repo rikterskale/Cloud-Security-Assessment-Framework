@@ -16,7 +16,16 @@ class TestCIConfig(unittest.TestCase):
         self.assertTrue(CI.exists())
 
     def test_required_gates_present(self):
-        for token in ["ruff check", "ruff format", "unittest", "pip-audit", "permissions:", "read-all"]:
+        for token in [
+            "ruff check",
+            "ruff format",
+            "unittest",
+            "pip-audit",
+            "permissions:",
+            "read-all",
+            "coverage run",
+            "--fail-under=90",
+        ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 
     def test_python_matrix(self):

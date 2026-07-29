@@ -49,11 +49,15 @@ class Coverage:
 def compute_coverage(selected_control_ids: set[str], results: list[ControlResult]) -> Coverage:
     """Compute coverage against the set of selected control IDs.
 
-    Any selected control with no result is counted as NotTested.
+    Any selected control with no result is counted as NotTested. A control may
+    produce many results (per resource or per region); the rolled-up status is
+    the highest-ranked one: an Error anywhere dominates, because coverage tracks
+    execution completeness and a partially-errored control did not fully
+    execute. Findings are derived from the raw per-result statuses, so a Fail in
+    one region still produces a finding even if another region errored.
     """
     status_by_control: dict[str, str] = {}
     for result in results:
-        # A control may span many resources; a single Fail dominates.
         current = status_by_control.get(result.control_id)
         if current is None or _rank(result.status) > _rank(current):
             status_by_control[result.control_id] = result.status
@@ -78,7 +82,10 @@ def compute_coverage(selected_control_ids: set[str], results: list[ControlResult
     )
 
 
-_STATUS_RANK = {"NotTested": 0, "NotApplicable": 1, "Error": 2, "Pass": 3, "Review": 4, "Fail": 5}
+# Rollup dominance for multi-result controls. Error ranks highest so partial
+# execution failures always surface in coverage and the exit code; Fail/Review
+# outrank Pass so a weakness anywhere is never averaged away.
+_STATUS_RANK = {"NotTested": 0, "NotApplicable": 1, "Pass": 2, "Review": 3, "Fail": 4, "Error": 5}
 
 
 def _rank(status: str) -> int:
