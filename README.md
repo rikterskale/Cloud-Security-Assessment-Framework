@@ -499,24 +499,6 @@ python3 -m coverage run --source=csaf,invoke_assessment -m unittest discover -s 
 python3 -m coverage report --fail-under=90
 python3 invoke_assessment.py --self-check --output-dir out
 ```
-## Safety
-
-- **Read-only guardrails.** Every provider enforces read-only access at runtime,
-  independent of the IAM policy in use; violations raise `ReadOnlyViolation`.
-  - AWS: `csaf/clouds/aws/session.py` wraps every boto3 client so only
-    non-mutating operations (`describe_*`, `list_*`, `get_*`, `head_*`, and
-    read-only `simulate_*`) can be called.
-  - Azure: `csaf/clouds/azure/session.py` funnels every ARM REST call through a
-    single choke point that only permits the `GET` verb (this also excludes
-    secret-exposing POST "list" operations such as `listKeys`).
-  - GCP: `csaf/clouds/gcp/session.py` permits `GET` plus an explicit allow-list
-    of read-only POST endpoints (`:getIamPolicy`, `:testIamPermissions`).
-- **Scope enforcement.** The runner refuses to assess an AWS account, Azure
-  subscription, or GCP project that is not in the engagement's
-  `authorizedAccounts`.
-- **Evidence protection.** The manifest proves artifact integrity via SHA-256; it
-  does not encrypt evidence. Store outputs on an access-controlled, encrypted
-  volume. Evidence can contain sensitive IAM and configuration data.
 
 ## Repository layout
 
