@@ -30,7 +30,7 @@ class TestSelfCheckRun(unittest.TestCase):
             self.assertFalse(result.all_executed)
             self.assertGreater(result.finding_count, 0)
 
-            out = Path(tmp)
+            out = Path(result.output_dir)
             for name in [
                 "findings.csv",
                 "findings.json",
@@ -75,9 +75,10 @@ class TestSelfCheckRun(unittest.TestCase):
                 self.assertEqual(result.exit_code, EXIT_INCOMPLETE)
                 self.assertGreater(result.finding_count, 0)
 
-                tech = json.loads((Path(tmp) / "technical-report.json").read_text())
+                out = Path(result.output_dir)
+                tech = json.loads((out / "technical-report.json").read_text())
                 self.assertEqual(tech["Context"]["cloud"], label)
-                results = [json.loads(line) for line in (Path(tmp) / "control-results.jsonl").read_text().splitlines()]
+                results = [json.loads(line) for line in (out / "control-results.jsonl").read_text().splitlines()]
                 self.assertTrue(all(r["Cloud"] == label for r in results))
 
     def test_findings_are_subset_of_failed_review(self):
@@ -90,8 +91,8 @@ class TestSelfCheckRun(unittest.TestCase):
                 self_check=True,
                 log_level="ERROR",
             )
-            run_assessment(config)
-            out = Path(tmp)
+            result = run_assessment(config)
+            out = Path(result.output_dir)
             control_rows = [json.loads(line) for line in (out / "control-results.jsonl").read_text().splitlines()]
             findings = json.loads((out / "findings.json").read_text())
             fail_review = {r["ControlId"] for r in control_rows if r["Status"] in ("Fail", "Review")}
@@ -114,10 +115,11 @@ class TestSelfCheckRun(unittest.TestCase):
                 log_level="INFO",
             )
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
-                run_assessment(config)
-            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+                result = run_assessment(config)
+            out = Path(result.output_dir)
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
             for artifact in manifest["Artifacts"]:
-                path = Path(tmp) / artifact["RelativePath"]
+                path = out / artifact["RelativePath"]
                 self.assertEqual(sha256_file(path), artifact["SHA256"], artifact["RelativePath"])
 
 

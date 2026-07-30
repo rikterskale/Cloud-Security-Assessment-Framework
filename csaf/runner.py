@@ -12,8 +12,10 @@ from __future__ import annotations
 import datetime
 import os
 import re
+import secrets
 import subprocess
 from dataclasses import dataclass, field
+from importlib.resources import files
 from pathlib import Path
 
 from . import FRAMEWORK_VERSION
@@ -37,33 +39,34 @@ from .reporting import (
     write_remediation_roadmap,
     write_technical_report,
 )
+from .resource_paths import resolve_resource
 
 EXIT_OK = 0
 EXIT_FATAL = 1
 EXIT_INCOMPLETE = 2
 REVISION_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 
-# Per-cloud defaults: display label, control catalog, and baseline thresholds.
+# Per-cloud packaged defaults: display label, control catalog, and baseline.
 CLOUDS = {
     "aws": {
         "label": "AWS",
-        "catalog": "controls/control-catalog.json",
-        "baseline": "baselines/aws-cis-1.5.json",
+        "catalog": "control-catalog.json",
+        "baseline": "aws-cis-1.5.json",
     },
     "azure": {
         "label": "Azure",
-        "catalog": "controls/control-catalog-azure.json",
-        "baseline": "baselines/azure-cis-2.0.json",
+        "catalog": "control-catalog-azure.json",
+        "baseline": "azure-cis-2.0.json",
     },
     "gcp": {
         "label": "GCP",
-        "catalog": "controls/control-catalog-gcp.json",
-        "baseline": "baselines/gcp-cis-1.3.json",
+        "catalog": "control-catalog-gcp.json",
+        "baseline": "gcp-cis-1.3.json",
     },
     "k8s": {
         "label": "K8s",
-        "catalog": "controls/control-catalog-k8s.json",
-        "baseline": "baselines/k8s-cis-1.8.json",
+        "catalog": "control-catalog-k8s.json",
+        "baseline": "k8s-cis-1.8.json",
     },
 }
 
@@ -106,6 +109,14 @@ def source_revision() -> str:
     if REVISION_PATTERN.fullmatch(configured):
         return configured.lower()
 
+    try:
+        revision_resource = files("csaf").joinpath("_source_revision")
+        packaged = revision_resource.read_text(encoding="ascii").strip() if revision_resource.is_file() else ""
+    except (FileNotFoundError, ModuleNotFoundError):
+        packaged = ""
+    if REVISION_PATTERN.fullmatch(packaged):
+        return packaged.lower()
+
     repository_root = Path(__file__).resolve().parent.parent
     try:
         completed = subprocess.run(
@@ -123,9 +134,14 @@ def source_revision() -> str:
 
 
 def run_assessment(config: RunConfig) -> RunResult:
-    run_id = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_dir = Path(config.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    run_id = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{secrets.token_hex(4)}"
+    output_base = Path(config.output_dir)
+    out_dir = output_base / run_id
+    try:
+        output_base.mkdir(parents=True, exist_ok=True)
+        out_dir.mkdir(exist_ok=False)
+    except Exception as exc:  # noqa: BLE001 - preserve fatal-result contract before logging exists
+        return RunResult(EXIT_FATAL, str(output_base), {}, {}, 0, False, f"Fatal: cannot create run directory: {exc}")
 
     logger = AssessmentLogger(
         run_id=run_id,
@@ -142,8 +158,12 @@ def run_assessment(config: RunConfig) -> RunResult:
         cloud = CLOUDS[config.cloud]
         cloud_label = cloud["label"]
 
-        catalog = Catalog.load(config.catalog_path or cloud["catalog"])
-        baseline = Baseline.load(config.baseline_path or cloud["baseline"])
+        with (
+            resolve_resource(config.catalog_path, "controls", cloud["catalog"]) as catalog_path,
+            resolve_resource(config.baseline_path, "baselines", cloud["baseline"]) as baseline_path,
+        ):
+            catalog = Catalog.load(catalog_path)
+            baseline = Baseline.load(baseline_path)
         engagement = Engagement.load(config.engagement_path)
 
         signing_key = None
@@ -159,6 +179,35 @@ def run_assessment(config: RunConfig) -> RunResult:
             logger.error("engagement", f"Profile '{config.profile}' is not authorized: {reason}")
             logger.close()
             return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized profile: {reason}")
+
+        active_profile = config.profile in ("Validation", "AdversarySimulation")
+        requested_account = {
+            "azure": config.subscription_id,
+            "gcp": config.project_id,
+            "k8s": config.kube_context,
+        }.get(config.cloud)
+        if active_profile and config.cloud != "aws" and requested_account is None:
+            if len(engagement.authorized_accounts) == 1:
+                requested_account = engagement.authorized_accounts[0]
+            else:
+                message = (
+                    f"Active {cloud_label} profiles require an explicit target identifier or exactly one "
+                    "authorizedAccounts entry."
+                )
+                logger.error("engagement", message)
+                logger.close()
+                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
+        scope_allowed, scope_reason = engagement.authorize_scope(
+            cloud_label,
+            config.regions,
+            requested_account,
+            active=active_profile,
+        )
+        logger.info("engagement", f"Requested scope authorization: {scope_reason}")
+        if not scope_allowed:
+            logger.error("engagement", f"Requested scope is not authorized: {scope_reason}")
+            logger.close()
+            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized scope: {scope_reason}")
 
         controls = catalog.for_profile(config.profile)
         # Honour baseline not-applicable exclusions.
@@ -196,32 +245,39 @@ def run_assessment(config: RunConfig) -> RunResult:
                 from .clouds.azure.provider import AzureProvider as Provider
                 from .clouds.azure.session import ArmSession
 
-                session = ArmSession(subscription_id=config.subscription_id)
+                session = ArmSession(subscription_id=requested_account)
                 account_id = session.subscription_id
                 scope_note = f"subscription {account_id}"
             elif config.cloud == "gcp":
                 from .clouds.gcp.provider import GcpProvider as Provider
                 from .clouds.gcp.session import GcpSession
 
-                session = GcpSession(project_id=config.project_id)
+                session = GcpSession(project_id=requested_account)
                 account_id = session.project_id
                 scope_note = f"project {account_id}"
             else:
                 from .clouds.k8s.provider import K8sProvider as Provider
                 from .clouds.k8s.session import K8sSession
 
-                session = K8sSession(kubeconfig_path=config.kubeconfig_path, context=config.kube_context)
+                session = K8sSession(kubeconfig_path=config.kubeconfig_path, context=requested_account)
                 account_id = session.cluster_context
                 scope_note = f"cluster context {account_id}"
 
-            if not engagement.account_authorized(account_id):
-                logger.error("engagement", f"Account {account_id} is not in the authorized scope.")
-                logger.close()
-                return RunResult(
-                    EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Account {account_id} not authorized by engagement."
-                )
             provider = Provider(session, baseline, evidence, logger, engagement, config.profile, **provider_kwargs)
             logger.info("runner", f"Assessing {cloud_label} {scope_note}.")
+
+        if not engagement.account_authorized(account_id):
+            logger.error("engagement", f"Account or context {account_id} is not in the authorized scope.")
+            logger.close()
+            return RunResult(
+                EXIT_FATAL,
+                str(out_dir),
+                {},
+                {},
+                0,
+                False,
+                f"Account or context {account_id} not authorized by engagement.",
+            )
 
         results = provider.evaluate(controls, config.regions)
 

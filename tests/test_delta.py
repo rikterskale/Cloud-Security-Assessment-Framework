@@ -71,21 +71,22 @@ class TestDeltaEndToEnd(unittest.TestCase):
                 self_check=True,
                 log_level="ERROR",
             )
-            run_assessment(config)
+            first_result = run_assessment(config)
 
             second_dir = Path(tmp) / "second"
             config.output_dir = str(second_dir)
-            config.previous_findings_path = str(first_dir / "findings.json")
-            run_assessment(config)
+            config.previous_findings_path = str(Path(first_result.output_dir) / "findings.json")
+            second_result = run_assessment(config)
+            output = Path(second_result.output_dir)
 
-            findings = json.loads((second_dir / "findings.json").read_text(encoding="utf-8"))
+            findings = json.loads((output / "findings.json").read_text(encoding="utf-8"))
             self.assertTrue(findings, "self-check should produce findings")
             self.assertTrue(all(f["DeltaStatus"] == PERSISTED for f in findings))
 
-            resolved = json.loads((second_dir / "findings-resolved.json").read_text(encoding="utf-8"))
+            resolved = json.loads((output / "findings-resolved.json").read_text(encoding="utf-8"))
             self.assertEqual(resolved, [])
 
-            html = (second_dir / "executive-summary.html").read_text(encoding="utf-8")
+            html = (output / "executive-summary.html").read_text(encoding="utf-8")
             self.assertIn("Delta vs previous run", html)
 
 

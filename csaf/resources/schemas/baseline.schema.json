@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/csaf/baseline.schema.json",
+  "title": "CSAF assessment baseline",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "baselineId": { "type": "string", "minLength": 1 },
+    "title": { "type": "string" },
+    "cloud": { "enum": ["AWS", "Azure", "GCP", "K8s"] },
+    "version": { "type": "string" },
+    "description": { "type": "string" },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "passwordMinLength": { "type": "integer", "minimum": 1 },
+        "passwordRequireSymbols": { "type": "boolean" },
+        "passwordRequireNumbers": { "type": "boolean" },
+        "passwordRequireUppercase": { "type": "boolean" },
+        "passwordRequireLowercase": { "type": "boolean" },
+        "passwordMaxAgeDays": { "type": "integer", "minimum": 0 },
+        "passwordReusePrevention": { "type": "integer", "minimum": 0 },
+        "accessKeyMaxAgeDays": { "type": "integer", "minimum": 0 },
+        "credentialInactivityDays": { "type": "integer", "minimum": 0 },
+        "rootActivityThresholdDays": { "type": "integer", "minimum": 0 },
+        "sensitiveIngressPorts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1, "maximum": 65535 }
+        },
+        "requireImdsV2": { "type": "boolean" },
+        "requireEbsDefaultEncryption": { "type": "boolean" },
+        "requireMultiRegionCloudTrail": { "type": "boolean" },
+        "requireGuardDuty": { "type": "boolean" },
+        "requireConfig": { "type": "boolean" },
+        "requireKmsKeyRotation": { "type": "boolean" },
+        "subscriptionOwnerMaxCount": { "type": "integer", "minimum": 0 },
+        "requiredDefenderPlans": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "saKeyMaxAgeDays": { "type": "integer", "minimum": 0 },
+        "kmsRotationMaxDays": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": {
+        "type": ["boolean", "integer", "number", "string", "array"],
+        "items": { "type": ["boolean", "integer", "number", "string"] }
+      }
+    },
+    "severityOverrides": {
+      "type": "object",
+      "additionalProperties": { "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"] }
+    },
+    "notApplicableControls": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^CSAF-[A-Z0-9]+-[A-Z0-9]+-[0-9]{3}$" }
+    }
+  },
+  "additionalProperties": false
+}

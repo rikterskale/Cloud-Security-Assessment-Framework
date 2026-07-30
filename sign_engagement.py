@@ -29,6 +29,7 @@ import json
 import sys
 
 from csaf.engagement_signing import sign, verify
+from csaf.io_utils import atomic_text_writer
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -65,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
 
     data["signature"] = sign(content, key)
     output_path = args.output or args.engagement
-    with open(output_path, "w", encoding="utf-8") as handle:
+    with atomic_text_writer(output_path) as handle:
         json.dump(data, handle, indent=2)
         handle.write("\n")
     print(f"[OK] Signed {args.engagement} -> {output_path}")

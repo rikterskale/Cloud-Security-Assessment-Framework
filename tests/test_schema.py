@@ -105,8 +105,8 @@ class TestFullRunConformance(unittest.TestCase):
                 self_check=True,
                 log_level="ERROR",
             )
-            run_assessment(config)
-            cls.outputs[cloud] = output
+            result = run_assessment(config)
+            cls.outputs[cloud] = Path(result.output_dir)
 
     @classmethod
     def tearDownClass(cls):

@@ -32,7 +32,8 @@ Assess a Kubernetes cluster (uses the current or named kubeconfig context):
 
 Validation profile (requires an approving engagement file):
     python3 invoke_assessment.py --profile Validation \
-        --engagement engagement.json --regions us-east-1 --output-dir out
+        --engagement engagement.json --engagement-key-file engagement.key \
+        --regions us-east-1 --output-dir out
 """
 
 from __future__ import annotations
@@ -76,13 +77,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to the baseline thresholds file (default: the selected cloud's CIS baseline).",
     )
     parser.add_argument(
-        "--engagement", default=None, help="Path to the engagement authorization file (required for Validation)."
+        "--engagement",
+        default=None,
+        help="Path to the signed engagement authorization file (required for active profiles).",
     )
     parser.add_argument(
         "--engagement-key-file",
         default=None,
-        help="Path to a shared-secret key file; when set, the engagement file's signature must verify "
-        "(see sign_engagement.py) or Validation/AdversarySimulation is refused.",
+        help="Path to the shared-secret key used to verify the signed engagement; required for "
+        "Validation/AdversarySimulation (see sign_engagement.py).",
     )
     parser.add_argument(
         "--previous-findings",
@@ -110,7 +113,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=1,
         help="AWS only: evaluate this many regions concurrently (default: 1, sequential).",
     )
-    parser.add_argument("--output-dir", default="csaf-output", help="Directory for reports and evidence.")
+    parser.add_argument(
+        "--output-dir",
+        default="csaf-output",
+        help="Parent directory; each assessment is written to a unique run subdirectory.",
+    )
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARN", "ERROR"])
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")

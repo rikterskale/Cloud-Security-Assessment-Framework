@@ -1,4 +1,7 @@
 ruff>=0.5
 pip-audit>=2.7
-jsonschema>=4.20
 coverage>=7.4
+build>=1.2
+twine>=5.1
+setuptools>=68
+wheel>=0.43

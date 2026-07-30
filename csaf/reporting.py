@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import FRAMEWORK_VERSION
 from .coverage import Coverage
+from .io_utils import atomic_text_writer
 from .model import ControlResult, Finding, utcnow_iso
 
 REMEDIATION_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
@@ -16,7 +17,7 @@ REMEDIATION_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
 
 def write_control_results(results: list[ControlResult], out_dir: Path) -> None:
     jsonl_path = out_dir / "control-results.jsonl"
-    with open(jsonl_path, "w", encoding="utf-8") as handle:
+    with atomic_text_writer(jsonl_path) as handle:
         for result in results:
             handle.write(json.dumps(result.to_dict()) + "\n")
 
@@ -38,7 +39,7 @@ def write_control_results(results: list[ControlResult], out_dir: Path) -> None:
         "ErrorReason",
         "CollectedAtUtc",
     ]
-    with open(csv_path, "w", newline="", encoding="utf-8") as handle:
+    with atomic_text_writer(csv_path, newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for result in results:
@@ -59,7 +60,7 @@ def write_findings(findings: list[Finding], out_dir: Path, delta=None) -> None:
         return data
 
     json_path = out_dir / "findings.json"
-    with open(json_path, "w", encoding="utf-8") as handle:
+    with atomic_text_writer(json_path) as handle:
         json.dump([row(f) for f in ordered], handle, indent=2)
 
     csv_path = out_dir / "findings.csv"
@@ -84,24 +85,24 @@ def write_findings(findings: list[Finding], out_dir: Path, delta=None) -> None:
     ]
     if delta is not None:
         fields.append("DeltaStatus")
-    with open(csv_path, "w", newline="", encoding="utf-8") as handle:
+    with atomic_text_writer(csv_path, newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for finding in ordered:
             writer.writerow(row(finding))
 
     if delta is not None:
-        with open(out_dir / "findings-resolved.json", "w", encoding="utf-8") as handle:
+        with atomic_text_writer(out_dir / "findings-resolved.json") as handle:
             json.dump(delta.resolved, handle, indent=2)
 
 
 def write_coverage(coverage: Coverage, not_tested_ids: list[str], out_dir: Path) -> None:
     payload = coverage.to_dict()
     payload["NotTestedControls"] = sorted(not_tested_ids)
-    with open(out_dir / "coverage-report.json", "w", encoding="utf-8") as handle:
+    with atomic_text_writer(out_dir / "coverage-report.json") as handle:
         json.dump(payload, handle, indent=2)
 
-    with open(out_dir / "coverage-report.csv", "w", newline="", encoding="utf-8") as handle:
+    with atomic_text_writer(out_dir / "coverage-report.csv", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Metric", "Value"])
         for key, value in coverage.to_dict().items():
@@ -111,7 +112,7 @@ def write_coverage(coverage: Coverage, not_tested_ids: list[str], out_dir: Path)
 def write_remediation_roadmap(findings: list[Finding], out_dir: Path) -> None:
     ordered = sorted(findings, key=lambda f: (REMEDIATION_ORDER.get(f.severity, 9), -f.risk_score))
     horizon = {"CRITICAL": "0-24h", "HIGH": "1-7d", "MEDIUM": "1-4w", "LOW": "1-3m"}
-    with open(out_dir / "remediation-roadmap.csv", "w", newline="", encoding="utf-8") as handle:
+    with atomic_text_writer(out_dir / "remediation-roadmap.csv", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Priority", "Horizon", "Severity", "ControlId", "Title", "ResourceId", "Remediation"])
         for i, finding in enumerate(ordered, 1):
@@ -130,11 +131,11 @@ def write_remediation_roadmap(findings: list[Finding], out_dir: Path) -> None:
 
 def write_detection_coverage(rows: list[dict], out_dir: Path) -> None:
     json_path = out_dir / "detection-coverage.json"
-    with open(json_path, "w", encoding="utf-8") as handle:
+    with atomic_text_writer(json_path) as handle:
         json.dump(rows, handle, indent=2)
 
     csv_path = out_dir / "detection-coverage.csv"
-    with open(csv_path, "w", newline="", encoding="utf-8") as handle:
+    with atomic_text_writer(csv_path, newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Technique", "Status", "ControlIds", "GapControlIds"])
         for row in rows:
@@ -165,7 +166,7 @@ def write_technical_report(
         "ControlResults": [r.to_dict() for r in results],
         "Findings": [f.to_dict() for f in findings],
     }
-    with open(out_dir / "technical-report.json", "w", encoding="utf-8") as handle:
+    with atomic_text_writer(out_dir / "technical-report.json") as handle:
         json.dump(payload, handle, indent=2)
 
 
@@ -293,5 +294,5 @@ details.all-findings table{{margin-bottom:0}}
 <tbody>{rows or "<tr><td colspan=5>No findings.</td></tr>"}</tbody></table>
 {all_findings_section}
 </body></html>"""
-    with open(out_dir / "executive-summary.html", "w", encoding="utf-8") as handle:
+    with atomic_text_writer(out_dir / "executive-summary.html") as handle:
         handle.write(doc)

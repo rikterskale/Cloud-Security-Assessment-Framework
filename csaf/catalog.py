@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .model import SEVERITIES
+from .schema_validation import validate_instance
 
 VALID_PROFILES = ["Inventory", "Assessment", "Validation", "AdversarySimulation"]
 
@@ -55,6 +56,7 @@ class Catalog:
     def load(cls, path: str | Path) -> "Catalog":
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
+        validate_instance(data, "control-catalog.schema.json", path)
         controls = [Control.from_dict(item) for item in data.get("controls", [])]
         ids = [c.id for c in controls]
         duplicates = {i for i in ids if ids.count(i) > 1}

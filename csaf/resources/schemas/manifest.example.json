@@ -1,0 +1,35 @@
+{
+  "SchemaVersion": "3.0",
+  "FrameworkVersion": "1.0.0",
+  "SourceRevision": "209601e07407a54b916f5ac7711fc55313dc7bdd",
+  "GeneratedAtUtc": "2026-07-29T13:57:12.201Z",
+  "Cloud": "AWS",
+  "AccountScope": "123456789012",
+  "AssessmentProfile": "Assessment",
+  "HashAlgorithm": "SHA256",
+  "ConfidentialityNotice": "This manifest is an integrity inventory. It does not independently authenticate or encrypt assessment evidence.",
+  "ArtifactCount": 3,
+  "Artifacts": [
+    {
+      "FileName": "findings.csv",
+      "RelativePath": "findings.csv",
+      "SHA256": "7B2F8B8BB50846F7FAED7D9D09FD6BF3E9D030CEE93A7FA8A91F9115E5FDF3A0",
+      "ByteLength": 839,
+      "LastWriteTimeUtc": "2026-07-29T13:56:41.0000000Z"
+    },
+    {
+      "FileName": "control-results.jsonl",
+      "RelativePath": "control-results.jsonl",
+      "SHA256": "35B0E1FD0E9BDF2A2F0F8FAF6CFD7E809267A6D2F4B5E2AB53E49D71D8A7C0BD",
+      "ByteLength": 4021,
+      "LastWriteTimeUtc": "2026-07-29T13:55:22.0000000Z"
+    },
+    {
+      "FileName": "iam-account-summary.json",
+      "RelativePath": "evidence/01_identity/iam-account-summary.json",
+      "SHA256": "CC72E3298A9DE8FDCEDDC8A6A6BA314B04736D0B42B13157E23F79E8B2B14C53",
+      "ByteLength": 10372,
+      "LastWriteTimeUtc": "2026-07-29T13:57:11.0000000Z"
+    }
+  ]
+}

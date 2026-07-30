@@ -64,14 +64,13 @@ pinned by unit tests (see [Testing](#testing)):
 
 ### 1. Install
 
-The currently supported execution path is a source checkout: the default
-catalogs and baselines are repository-relative runtime files. Run commands
-from the repository root. The Python package metadata exposes console scripts,
-but installed-wheel execution from an unrelated working directory is not yet
-a supported distribution path.
+Install from a source checkout or a built wheel. Default catalogs, baselines,
+and runtime schemas are package resources, so the `csaf-assess` console script
+works from any current directory.
 
 ```bash
 python3 -m pip install -r requirements.txt
+python3 -m pip install .
 ```
 
 For live Azure, GCP, or Kubernetes assessments, add the optional provider
@@ -153,18 +152,22 @@ python3 invoke_assessment.py --cloud k8s --kube-context my-cluster --output-dir 
 
 If `--kube-context` is omitted, the kubeconfig's `current-context` is used.
 
-### 5. Validation profile (requires an approving engagement)
+### 5. Validation profile (requires a signed, scoped engagement)
 
 ```bash
+python3 sign_engagement.py --engagement engagement.json --key-file engagement.key
 python3 invoke_assessment.py \
   --profile Validation \
   --engagement engagement.json \
+  --engagement-key-file engagement.key \
   --regions us-east-1 \
   --output-dir out
 ```
 
 The run refuses to start unless the engagement sets
-`activeValidationApproved: true` and the current time is inside its window. See
+`activeValidationApproved: true`, contains explicit account and applicable
+region scope, has a valid HMAC signature, and the current time is inside its
+complete start/end window. See
 [`schemas/engagement.example.json`](schemas/engagement.example.json) and the
 matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 
@@ -177,8 +180,8 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--regions` | `us-east-1` | Regions evaluated by per-region AWS controls (space-separated); Azure/GCP/K8s controls are subscription/project/cluster scoped |
 | `--catalog` | the selected cloud's catalog | Control catalog path |
 | `--baseline` | the selected cloud's CIS baseline | Threshold/override baseline path |
-| `--engagement` | none | Engagement authorization file (required for `Validation`) |
-| `--engagement-key-file` | none | Shared-secret key file; when set, the engagement file's signature must verify (see [`sign_engagement.py`](sign_engagement.py)) |
+| `--engagement` | none | Signed engagement authorization file (required for active profiles) |
+| `--engagement-key-file` | none | Shared-secret verification key (required for active profiles; see [`sign_engagement.py`](sign_engagement.py)) |
 | `--previous-findings` | none | Prior run's `findings.json` to diff against (adds `DeltaStatus` + `findings-resolved.json`) |
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
 | `--subscription` | discovered if unambiguous | Azure subscription ID |
@@ -186,7 +189,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--kube-context` | kubeconfig's `current-context` | Kubernetes context to assess |
 | `--kubeconfig` | standard kubeconfig locations / `KUBECONFIG` | Path to a kubeconfig file |
 | `--max-workers` | `1` | AWS only: evaluate this many regions concurrently (sequential by default) |
-| `--output-dir` | `csaf-output` | Directory for reports and evidence |
+| `--output-dir` | `csaf-output` | Parent directory; each assessment gets a unique run subdirectory |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
 
@@ -196,8 +199,8 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 |---|---|---|---|
 | `Inventory` | yes | Reserved; current catalogs select no Inventory controls, so the runner exits `1` | None |
 | `Assessment` | yes | Default posture assessment | None |
-| `Validation` | yes | Adds non-destructive policy validation controls | Requires approved, in-window engagement |
-| `AdversarySimulation` | yes | Validation's control set, narrowed to only MITRE ATT&CK-mapped controls | Requires approved, in-window engagement |
+| `Validation` | yes | Adds non-destructive policy validation controls | Requires signed, approved, in-window, explicitly scoped engagement |
+| `AdversarySimulation` | yes | Validation's control set, narrowed to only MITRE ATT&CK-mapped controls | Requires signed, approved, in-window, explicitly scoped engagement |
 
 Validation-only controls (marked `validationOnly` in the catalog) are excluded
 from `Inventory` and `Assessment` selections. `AdversarySimulation` is not an
@@ -402,13 +405,14 @@ per cloud in [`baselines/`](baselines/): `aws-cis-1.5.json`, `azure-cis-2.0.json
 The engagement file ([schema](schemas/engagement.schema.json),
 [example](schemas/engagement.example.json)) binds a run to an authorized scope:
 
-- `authorizedAccounts` — the runner refuses (exit `1`) to assess an account not
-  listed; an empty list means unscoped.
-- `authorizedRegions` — parsed and signed as engagement metadata, but not yet
-  enforced by the runner. Restrict `--regions` operationally until strict
-  region-policy enforcement is implemented.
-- `authorizedSourceAddresses` — defined by the schema but not consumed by the
-  local runner.
+- `authorizedAccounts` — the runner refuses (exit `1`) to assess an account,
+  subscription, project, or cluster context not listed. Active profiles require
+  at least one explicit entry.
+- `authorizedRegions` — every requested AWS region must be listed. Active AWS
+  profiles require at least one explicit region.
+- `authorizedSourceAddresses` — the local CLI cannot prove its public source
+  address, so an active run containing this restriction fails closed. Enforce
+  the restriction outside CSAF or omit the field.
 - `windowStartUtc` / `windowEndUtc` — `Validation` and `AdversarySimulation`
   refuse to run outside the window.
 - `activeValidationApproved` — must be `true` for `Validation` /
@@ -417,7 +421,7 @@ The engagement file ([schema](schemas/engagement.schema.json),
 - `stopConditions` / `prohibitedActions` / `operatorContacts` — parsed and
   covered by an optional signature, but not automatically enforced.
 
-### Engagement signing (optional)
+### Engagement signing (required for active profiles)
 
 The engagement file grants active-validation authorization by itself — a JSON
 flag anyone with filesystem access could edit unnoticed. Signing binds an
@@ -429,46 +433,51 @@ python3 sign_engagement.py --engagement engagement.json --key-file engagement.ke
 ```
 
 Then pass `--engagement-key-file engagement.key` to `invoke_assessment.py`.
-With a key supplied, `Validation`/`AdversarySimulation` is refused if the
-signature doesn't verify — including after any edit made post-signing, since
-the signature covers the full file content (minus the signature field
-itself). This is HMAC (shared-secret) signing, not PKI — appropriate for an
-approver and operator who already share a key out of band, not for
-third-party verification. See [`csaf/engagement_signing.py`](csaf/engagement_signing.py).
+`Validation`/`AdversarySimulation` is refused without a key or if the signature
+doesn't verify — including after any edit made post-signing, since the
+signature covers the full file content (minus the signature field itself).
+This is HMAC (shared-secret) signing, not PKI — appropriate for an approver and
+operator who already share a key out of band, not for third-party verification.
+See [`csaf/engagement_signing.py`](csaf/engagement_signing.py).
 
 ## Output artifacts
 
 ```text
 out/
-├── assessment-<ts>.log          # human-readable log
-├── assessment-<ts>.jsonl        # structured JSON Lines log (ts, runId, level, component, message)
-├── control-results.jsonl        # every control result (schema 3.0), one JSON object per line
-├── control-results.csv
-├── findings.csv                 # prioritized findings only (CRITICAL first)
-├── findings.json
-├── findings-resolved.json       # only written with --previous-findings: prior findings absent from this run
-├── detection-coverage.json      # per-MITRE-technique rollup: Gap / Covered / Unknown
-├── detection-coverage.csv
-├── coverage-report.json         # executed/pass/fail/not-tested/error + NotTestedControls IDs
-├── coverage-report.csv
-├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding
-├── technical-report.json        # source revision + context + coverage + risk + results + findings
-├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped);
-│                                 # shows the top 50 findings, plus a collapsible "Show all N findings"
-│                                 # section when there are more — nothing is silently dropped
-├── manifest.json                # source revision + SHA-256 inventory of every artifact
-└── evidence/                    # raw collector evidence (e.g. credential report), namespaced
+└── <UTC timestamp>-<random>/
+    ├── assessment-<ts>.log          # human-readable log
+    ├── assessment-<ts>.jsonl        # structured JSON Lines log
+    ├── control-results.jsonl        # every control result, one JSON object per line
+    ├── control-results.csv
+    ├── findings.csv                 # prioritized findings only (CRITICAL first)
+    ├── findings.json
+    ├── findings-resolved.json       # only written with --previous-findings
+    ├── detection-coverage.json
+    ├── detection-coverage.csv
+    ├── coverage-report.json
+    ├── coverage-report.csv
+    ├── remediation-roadmap.csv
+    ├── technical-report.json
+    ├── executive-summary.html
+    ├── manifest.json                # source revision + artifact SHA-256 inventory
+    └── evidence/                    # raw collector evidence, namespaced
 ```
 
 Start with `coverage-report.csv` to confirm every selected control ran, then
 `findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never
-security passes.
+security passes. A unique run directory prevents concurrent or repeated runs
+from overwriting one another. Reports, evidence, signatures, and manifests use
+same-directory temporary files followed by atomic replacement, so interrupted
+writes do not replace a previously complete destination.
 
 Every emitted AWS, Azure, GCP, and Kubernetes control result and finding
-conforms to the JSON Schemas in
-[`schemas/`](schemas/) (`control-result.schema.json`, `finding.schema.json`) —
-this is enforced by tests against a full pipeline run, not just hand-picked
-examples. The technical report and manifest record the source revision when
+conforms to the JSON Schemas in [`schemas/`](schemas/)
+(`control-result.schema.json`, `finding.schema.json`) — this is enforced by
+tests against a full pipeline run, not just hand-picked examples. Catalog,
+baseline, and engagement input JSON is also validated against strict packaged
+schemas before it is used; unknown fields, incompatible schema versions, and
+invalid known threshold types fail with an actionable fatal error. The
+technical report and manifest record the source revision when
 discoverable (or when `CSAF_SOURCE_REVISION` is supplied). The manifest records
 `RelativePath` with forward slashes on every platform, hashes every artifact
 except itself, and can be re-verified by recomputing SHA-256 over the files it
@@ -498,10 +507,11 @@ an actor who can rewrite both.
     generated API object so only `list_*`/`read_*` operations can be called;
     this specifically blocks `connect_*` (the verb prefix the client uses for
     exec/attach/port-forward), not just `create_*`/`patch_*`/`delete_*`.
-- **Scope enforcement.** When `authorizedAccounts` is nonempty, the runner
-  refuses to assess an AWS account, Azure subscription, GCP project, or
-  Kubernetes context not in that list. An empty list is currently unscoped,
-  and `authorizedRegions` is not yet enforced.
+- **Scope enforcement.** A configured engagement pins the cloud and any listed
+  account/subscription/project/context. AWS regions must be a subset of
+  `authorizedRegions`. Active profiles require nonempty explicit account scope,
+  and active AWS profiles also require nonempty region scope. Read-only runs
+  without an engagement remain intentionally unscoped.
 - **Evidence protection.** The manifest inventories artifact hashes via
   SHA-256; it does not independently authenticate or encrypt evidence. Store
   outputs on an access-controlled, encrypted volume. Evidence can contain
@@ -596,11 +606,22 @@ permissions and these gates:
 - Python 3.10 / 3.12 / 3.14 unit-test matrix
 - Line-coverage gate: `coverage report --fail-under=90` over `csaf/` and the CLI
 - Dependency preflight and offline self-check report generation
+- Hash-locked dependency installation
+- Source/wheel build, metadata verification, and an installed-wheel smoke test
+  executed outside the repository
+
+`.github/workflows/release.yml` runs for `v*` tags. It builds the wheel and
+source distribution with the commit revision embedded, verifies them, produces
+a CycloneDX SBOM and SHA-256 checksums, smoke-tests the installed wheel, creates
+GitHub artifact provenance and SBOM attestations, uploads the complete release
+bundle, and publishes a GitHub Release. Verify a downloaded distribution with
+`gh attestation verify <file> --repo <owner>/<repo>` and compare its digest to
+`SHA256SUMS`.
 
 Run locally:
 
 ```bash
-pip install -r requirements.txt -r requirements-ci.txt
+pip install --require-hashes -r requirements-lock.txt
 ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
 ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py
 python3 -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests

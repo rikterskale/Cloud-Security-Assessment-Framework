@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from . import FRAMEWORK_VERSION, SCHEMA_VERSION
+from .io_utils import atomic_text_writer
 from .model import utcnow_iso
 
 
@@ -31,7 +32,7 @@ class EvidenceStore:
         target_dir = self.evidence_dir / namespace
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / name
-        with open(path, "w", encoding="utf-8") as handle:
+        with atomic_text_writer(path) as handle:
             json.dump(data, handle, indent=2, default=str)
         return str(path.relative_to(self.root))
 
@@ -39,7 +40,7 @@ class EvidenceStore:
         target_dir = self.evidence_dir / namespace
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / name
-        with open(path, "w", encoding="utf-8") as handle:
+        with atomic_text_writer(path) as handle:
             handle.write(text)
         return str(path.relative_to(self.root))
 
@@ -89,6 +90,6 @@ def write_manifest(
         "ArtifactCount": len(artifacts),
         "Artifacts": artifacts,
     }
-    with open(manifest_path, "w", encoding="utf-8") as handle:
+    with atomic_text_writer(manifest_path) as handle:
         json.dump(manifest, handle, indent=2)
     return manifest_path
