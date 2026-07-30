@@ -33,7 +33,7 @@
       "enum": ["LOW", "MEDIUM", "HIGH"]
     },
     "RiskScore": { "type": "integer", "minimum": 0, "maximum": 100 },
-    "Cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "Cloud": { "enum": ["AWS", "Azure", "GCP", "K8s"] },
     "AccountId": { "type": "string" },
     "Region": { "type": "string" },
     "ResourceType": { "type": "string" },

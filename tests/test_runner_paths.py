@@ -2,11 +2,13 @@
 
 import datetime
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from csaf.runner import EXIT_FATAL, EXIT_INCOMPLETE, EXIT_OK, RunConfig, run_assessment
+from csaf.runner import EXIT_FATAL, EXIT_INCOMPLETE, EXIT_OK, RunConfig, run_assessment, source_revision
 
 REPO = Path(__file__).resolve().parent.parent
 CATALOG = str(REPO / "controls" / "control-catalog.json")
@@ -90,6 +92,21 @@ class TestFatalPaths(unittest.TestCase):
             result = run(Path(tmp) / "out", baseline_path=str(bad))
             self.assertEqual(result.exit_code, EXIT_FATAL)
 
+    def test_profile_selecting_no_controls_is_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run(tmp, profile="Inventory")
+            self.assertEqual(result.exit_code, EXIT_FATAL)
+            self.assertIn("selected no controls", result.message)
+            self.assertFalse((Path(tmp) / "technical-report.json").exists())
+
+    def test_empty_engagement_key_is_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = Path(tmp) / "empty.key"
+            key_path.write_text(" \n", encoding="utf-8")
+            result = run(Path(tmp) / "out", engagement_key_path=str(key_path))
+            self.assertEqual(result.exit_code, EXIT_FATAL)
+            self.assertIn("key file is empty", result.message)
+
 
 class TestBaselineExclusions(unittest.TestCase):
     def test_not_applicable_controls_removed_from_selection(self):
@@ -136,6 +153,13 @@ class TestRunLogs(unittest.TestCase):
                 self.assertIn("message", record)
                 self.assertIn("runId", record)
             self.assertTrue(any("NOT COMPLETED" in r["message"] for r in records))
+
+
+class TestSourceRevision(unittest.TestCase):
+    def test_environment_revision_is_normalized_and_preferred(self):
+        configured = "A" * 40
+        with patch.dict(os.environ, {"CSAF_SOURCE_REVISION": configured}):
+            self.assertEqual(source_revision(), configured.lower())
 
 
 if __name__ == "__main__":

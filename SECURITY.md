@@ -32,8 +32,10 @@ In scope:
 
 Out of scope:
 
-- The reference methodology documents under `reference/` (documentation only,
-  not executed code).
+- The reference methodology documents under `reference/`. The standalone
+  experimental `reference/aggregator.py` is executable when invoked directly,
+  but is not packaged, imported, or executed by CSAF and is not covered by the
+  framework's runtime safety guarantees.
 - Misconfiguration of the *credentials* an operator supplies to CSAF (e.g.
   using an overly broad IAM policy instead of the recommended `ReadOnlyAccess`
   / `SecurityAudit` policy) — CSAF's guardrail is defense-in-depth, not a

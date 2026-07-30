@@ -11,6 +11,7 @@ expected to use.
 from __future__ import annotations
 
 import time
+from urllib.parse import urlsplit
 
 ARM_BASE = "https://management.azure.com"
 ARM_SCOPE = "https://management.azure.com/.default"
@@ -19,6 +20,7 @@ ARM_SCOPE = "https://management.azure.com/.default"
 # operations (e.g. storage listKeys) are POST precisely because they expose
 # secrets; blocking every non-GET verb also keeps those out of scope.
 READ_ONLY_METHODS = ("GET",)
+ARM_HOST = urlsplit(ARM_BASE).hostname
 
 
 class ReadOnlyViolation(RuntimeError):
@@ -68,7 +70,27 @@ class ArmSession:
             raise ReadOnlyViolation(
                 f"Blocked non-read-only ARM request '{method} {path}'. CSAF performs read-only assessment."
             )
-        url = path if path.startswith("https://") else f"{ARM_BASE}{path}"
+        if "://" in path:
+            parsed = urlsplit(path)
+            try:
+                port = parsed.port
+            except ValueError as exc:
+                raise ReadOnlyViolation(f"Blocked malformed ARM URL '{path}'.") from exc
+            if (
+                parsed.scheme.lower() != "https"
+                or parsed.hostname is None
+                or parsed.hostname.lower() != ARM_HOST
+                or parsed.username is not None
+                or parsed.password is not None
+                or port not in (None, 443)
+            ):
+                raise ReadOnlyViolation(
+                    f"Blocked ARM request to untrusted host '{parsed.netloc}'. "
+                    f"Credentialed requests are restricted to {ARM_HOST}."
+                )
+            url = path
+        else:
+            url = f"{ARM_BASE}{path}"
         query = dict(params or {})
         if api_version:
             query["api-version"] = api_version

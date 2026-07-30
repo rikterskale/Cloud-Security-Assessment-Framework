@@ -40,6 +40,11 @@ class TestSignVerify(unittest.TestCase):
         self.assertFalse(verify({"a": 1}, None, b"key"))
         self.assertFalse(verify({"a": 1}, "", b"key"))
 
+    def test_empty_key_cannot_sign_or_verify(self):
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            sign({"a": 1}, b"")
+        self.assertFalse(verify({"a": 1}, "deadbeef", b""))
+
 
 if __name__ == "__main__":
     unittest.main()

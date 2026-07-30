@@ -1,2 +1,12 @@
-# Auto detect text files and perform LF normalization
+# Keep source and configuration files LF-normalized on every platform so
+# local Ruff results match Linux CI.
 * text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.py text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf

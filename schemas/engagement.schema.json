@@ -9,10 +9,10 @@
     "schemaVersion": { "type": "string" },
     "engagementId": { "type": "string", "minLength": 1 },
     "customer": { "type": "string" },
-    "cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "cloud": { "enum": ["AWS", "Azure", "GCP", "K8s"] },
     "authorizedAccounts": {
       "type": "array",
-      "items": { "type": "string", "pattern": "^[0-9]{12}$" }
+      "items": { "type": "string", "minLength": 1 }
     },
     "authorizedRegions": { "type": "array", "items": { "type": "string" } },
     "authorizedSourceAddresses": { "type": "array", "items": { "type": "string" } },

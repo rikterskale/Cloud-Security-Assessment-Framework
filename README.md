@@ -3,7 +3,7 @@
 CSAF is a **read-only** cloud security posture assessment framework. It
 enumerates configuration, evaluates a declarative control catalog, records
 exactly one status per selected control, and produces coverage, findings, and
-executive/technical/remediation reports with a tamper-evident evidence manifest.
+executive/technical/remediation reports with a SHA-256 evidence inventory.
 
 It does **not** create, modify, or delete cloud resources, and it does **not**
 execute exploitation. A read-only guardrail blocks any mutating cloud API call
@@ -16,9 +16,11 @@ core (engagement, catalog, coverage, findings, reporting) is cloud-agnostic;
 each cloud plugs in as a provider under `csaf/clouds/` with its own control
 catalog and CIS-aligned baseline.
 
-> The offensive red-team methodology documents that seeded this project now live
-> under [`reference/`](reference/) and are **reference-only**. CSAF itself is a
-> defensive, read-only assessment tool.
+> The offensive red-team methodology documents that seeded this project live
+> under [`reference/`](reference/) and are **reference-only**. The directory
+> also contains a standalone experimental aggregator; it is not packaged,
+> imported, or executed by CSAF. CSAF itself is a defensive, read-only
+> assessment tool.
 
 ## Table of contents
 
@@ -61,6 +63,12 @@ pinned by unit tests (see [Testing](#testing)):
 ## Quick start
 
 ### 1. Install
+
+The currently supported execution path is a source checkout: the default
+catalogs and baselines are repository-relative runtime files. Run commands
+from the repository root. The Python package metadata exposes console scripts,
+but installed-wheel execution from an unrelated working directory is not yet
+a supported distribution path.
 
 ```bash
 python3 -m pip install -r requirements.txt
@@ -186,7 +194,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 
 | Profile | Read-only | Extra behaviour | Authorization |
 |---|---|---|---|
-| `Inventory` | yes | Collects config; issues few conclusions | None |
+| `Inventory` | yes | Reserved; current catalogs select no Inventory controls, so the runner exits `1` | None |
 | `Assessment` | yes | Default posture assessment | None |
 | `Validation` | yes | Adds non-destructive policy validation controls | Requires approved, in-window engagement |
 | `AdversarySimulation` | yes | Validation's control set, narrowed to only MITRE ATT&CK-mapped controls | Requires approved, in-window engagement |
@@ -199,6 +207,10 @@ exactly the controls relevant to attacker tradecraft rather than duplicating
 `Validation`'s full set under a different name. The framework itself stays
 identically read-only under both profiles — only the *selected controls*
 differ.
+
+The runner treats a profile that selects zero controls as a fatal
+configuration error rather than reporting a misleading successful `0/0`
+assessment.
 
 ## Exit codes
 
@@ -392,13 +404,18 @@ The engagement file ([schema](schemas/engagement.schema.json),
 
 - `authorizedAccounts` — the runner refuses (exit `1`) to assess an account not
   listed; an empty list means unscoped.
+- `authorizedRegions` — parsed and signed as engagement metadata, but not yet
+  enforced by the runner. Restrict `--regions` operationally until strict
+  region-policy enforcement is implemented.
+- `authorizedSourceAddresses` — defined by the schema but not consumed by the
+  local runner.
 - `windowStartUtc` / `windowEndUtc` — `Validation` and `AdversarySimulation`
   refuse to run outside the window.
 - `activeValidationApproved` — must be `true` for `Validation` /
   `AdversarySimulation`; `Inventory` and `Assessment` never require it.
 - `attestations` — operator-supplied answers for manual controls.
-- `stopConditions` / `prohibitedActions` / `operatorContacts` — recorded for
-  the engagement record.
+- `stopConditions` / `prohibitedActions` / `operatorContacts` — parsed and
+  covered by an optional signature, but not automatically enforced.
 
 ### Engagement signing (optional)
 
@@ -435,11 +452,11 @@ out/
 ├── coverage-report.json         # executed/pass/fail/not-tested/error + NotTestedControls IDs
 ├── coverage-report.csv
 ├── remediation-roadmap.csv      # priority, horizon (0-24h/1-7d/1-4w/1-3m), remediation per finding
-├── technical-report.json        # context + coverage + risk + compliance + all results + findings
+├── technical-report.json        # source revision + context + coverage + risk + results + findings
 ├── executive-summary.html       # severity + coverage + compliance rollup (all values HTML-escaped);
 │                                 # shows the top 50 findings, plus a collapsible "Show all N findings"
 │                                 # section when there are more — nothing is silently dropped
-├── manifest.json                # SHA-256 of every artifact
+├── manifest.json                # source revision + SHA-256 inventory of every artifact
 └── evidence/                    # raw collector evidence (e.g. credential report), namespaced
 ```
 
@@ -447,12 +464,17 @@ Start with `coverage-report.csv` to confirm every selected control ran, then
 `findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never
 security passes.
 
-Every emitted control result and finding conforms to the JSON Schemas in
+Every emitted AWS, Azure, GCP, and Kubernetes control result and finding
+conforms to the JSON Schemas in
 [`schemas/`](schemas/) (`control-result.schema.json`, `finding.schema.json`) —
 this is enforced by tests against a full pipeline run, not just hand-picked
-examples. The manifest records `RelativePath` with forward slashes on every
-platform, hashes every artifact except itself, and can be re-verified at any
-time by recomputing SHA-256 over the files it lists.
+examples. The technical report and manifest record the source revision when
+discoverable (or when `CSAF_SOURCE_REVISION` is supplied). The manifest records
+`RelativePath` with forward slashes on every platform, hashes every artifact
+except itself, and can be re-verified by recomputing SHA-256 over the files it
+lists. Because the manifest is stored beside the artifacts and is not
+independently signed, it is an integrity inventory rather than proof against
+an actor who can rewrite both.
 
 ## Safety
 
@@ -476,20 +498,21 @@ time by recomputing SHA-256 over the files it lists.
     generated API object so only `list_*`/`read_*` operations can be called;
     this specifically blocks `connect_*` (the verb prefix the client uses for
     exec/attach/port-forward), not just `create_*`/`patch_*`/`delete_*`.
-- **Scope enforcement.** The runner refuses to assess an AWS account, Azure
-  subscription, GCP project, or Kubernetes context that is not in the
-  engagement's `authorizedAccounts` (for Kubernetes, list the kubeconfig
-  context name).
-- **Evidence protection.** The manifest proves artifact integrity via SHA-256;
-  it does not encrypt evidence. Store outputs on an access-controlled,
-  encrypted volume. Evidence can contain sensitive IAM and configuration data.
+- **Scope enforcement.** When `authorizedAccounts` is nonempty, the runner
+  refuses to assess an AWS account, Azure subscription, GCP project, or
+  Kubernetes context not in that list. An empty list is currently unscoped,
+  and `authorizedRegions` is not yet enforced.
+- **Evidence protection.** The manifest inventories artifact hashes via
+  SHA-256; it does not independently authenticate or encrypt evidence. Store
+  outputs on an access-controlled, encrypted volume. Evidence can contain
+  sensitive IAM and configuration data.
 - **Report safety.** All untrusted values (finding titles, resource IDs,
   remediation text) are HTML-escaped before rendering into the executive
   summary.
 
 ## Testing
 
-The suite (405 tests, standard-library `unittest`, no cloud credentials and no
+The suite (more than 400 tests, standard-library `unittest`, no cloud credentials and no
 provider SDKs required) is designed around the framework's safety invariants:
 every "never" in this README has a test asserting it. Line coverage is 94%
 overall (CI gates at >= 90%; see [Continuous integration](#continuous-integration)).
@@ -519,21 +542,21 @@ python3 -m coverage report --show-missing
 | `test_base_module.py` | Dispatcher: exceptions -> single `Error` result, missing checks -> `Error`, severity normalisation, baseline overrides, metadata propagation |
 | `test_provider.py` | Global vs per-region dispatch, unknown modules -> `NotTested`, one region erroring doesn't stop others, attestation handling |
 | `test_module_identity.py` | Credential-report checks (root MFA/keys/activity, user MFA, key rotation boundaries, unused credentials), password policy, `*`-admin and privesc policy analysis, IAM wildcard matching |
-| `test_module_s3.py` | Public-access block, policy- and ACL-public buckets, encryption (`AccessDenied` counts as an offender; unexpected errors raise), TLS-only policies, bucket-list caching |
+| `test_module_s3.py` | Public-access block, policy- and ACL-public buckets, fail-closed inspection errors, encryption (`AccessDenied` counts as an offender; unexpected errors raise), TLS-only policies, bucket-list caching |
 | `test_module_compute.py` | `_covered_ports`/`_has_public_cidr` tables, IMDSv2, EBS default encryption, public-instance exposure, inventory caching |
 | `test_module_network.py` | Admin-port ingress (incl. custom baseline ports), default-SG rules, VPC flow logs |
 | `test_module_kms_rds.py` | KMS rotation (only enabled customer symmetric keys evaluated), RDS encryption and public access |
 | `test_module_logging.py` | CloudTrail multi-region/validation/KMS, Config recorder, GuardDuty detectors, trail caching |
 | `test_compliance.py` | Framework rollup: evaluated/passed/failed counting, `Error`/`NotTested` excluded, unknown prefixes ignored |
-| `test_evidence.py` | SHA-256 known vector, namespaced evidence store, manifest completeness, forward-slash paths, tamper detection |
+| `test_evidence.py` | SHA-256 known vector, namespaced evidence store, manifest completeness, source revision, file-metadata timestamps, forward-slash paths, tamper detection |
 | `test_reporting.py` | CSV/JSONL row integrity, severity ordering, remediation horizons, HTML escaping of hostile values, incomplete-coverage banner |
 | `test_runner_selfcheck.py` | End-to-end offline pipeline: all artifacts produced, findings are a strict subset of Fail/Review controls |
 | `test_runner_paths.py` | Unauthorized/out-of-window profiles -> exit `1`, missing catalog / malformed baseline -> fatal result (no traceback), baseline exclusions change selection, fully-executed run -> exit `0`, structured log content |
 | `test_cli.py` | Argument defaults and validation, `--version`, exit-code propagation through `main()` |
 | `test_logging.py` | Level filtering, JSONL structure and extra fields, console-only operation |
-| `test_schema.py` | Every record from a full self-check run validates against the JSON Schemas; manifest hashes re-verify against the artifacts on disk |
+| `test_schema.py` | Every record from all four cloud self-check runs validates against the JSON Schemas; manifest hashes re-verify against the artifacts on disk |
 | `test_ci_config.py` | CI workflow keeps its gates (lint, tests, coverage >= 90%, pip-audit, read-all permissions) |
-| `test_readonly_azure_gcp.py` | Azure `ArmSession` (GET-only) and GCP `GcpSession` (GET + narrow read-only-POST allow-list) guardrails, including that a same-shaped mutating endpoint is still blocked |
+| `test_readonly_azure_gcp.py` | Azure `ArmSession` (GET-only and ARM-host-pinned) and GCP `GcpSession` (GET + narrow read-only-POST allow-list) guardrails |
 | `test_readonly_k8s.py` | Kubernetes `ReadOnlyApiClient` guardrail: `list_*`/`read_*` allowed, `create_*`/`delete_*`/`patch_*`/`replace_*` blocked, and `connect_*` (exec/attach/port-forward) specifically blocked |
 | `test_provider_azure_gcp.py` | Azure/GCP provider dispatch: subscription/project-scoped module routing, attestation handling, unknown modules, module-instance reuse |
 | `test_provider_k8s.py` | Kubernetes provider dispatch: cluster-scoped module routing, attestation handling, unknown modules, module-instance reuse |

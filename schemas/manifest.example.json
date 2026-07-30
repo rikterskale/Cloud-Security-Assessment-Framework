@@ -1,12 +1,13 @@
 {
   "SchemaVersion": "3.0",
   "FrameworkVersion": "1.0.0",
+  "SourceRevision": "209601e07407a54b916f5ac7711fc55313dc7bdd",
   "GeneratedAtUtc": "2026-07-29T13:57:12.201Z",
   "Cloud": "AWS",
   "AccountScope": "123456789012",
   "AssessmentProfile": "Assessment",
   "HashAlgorithm": "SHA256",
-  "ConfidentialityNotice": "This manifest proves artifact integrity only. It does not encrypt assessment evidence.",
+  "ConfidentialityNotice": "This manifest is an integrity inventory. It does not independently authenticate or encrypt assessment evidence.",
   "ArtifactCount": 3,
   "Artifacts": [
     {

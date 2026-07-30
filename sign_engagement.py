@@ -49,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
 
     with open(args.key_file, "rb") as handle:
         key = handle.read().strip()
+    if not key:
+        print("[FAIL] Engagement signing key file is empty.", file=sys.stderr)
+        return 1
     with open(args.engagement, encoding="utf-8") as handle:
         data = json.load(handle)
 

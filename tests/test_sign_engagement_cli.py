@@ -1,5 +1,7 @@
 """CLI behavior for the sign_engagement.py signing helper."""
 
+import contextlib
+import io
 import json
 import tempfile
 import unittest
@@ -57,6 +59,18 @@ class TestSignEngagementCli(unittest.TestCase):
         self.assertTrue(out_path.exists())
         original = json.loads(self.engagement_path.read_text(encoding="utf-8"))
         self.assertNotIn("signature", original)
+
+    def test_empty_key_file_fails_without_modifying_engagement(self):
+        self.key_path.write_text(" \n", encoding="utf-8")
+        before = self.engagement_path.read_bytes()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            exit_code = sign_engagement.main(
+                ["--engagement", str(self.engagement_path), "--key-file", str(self.key_path)]
+            )
+        self.assertEqual(exit_code, 1)
+        self.assertIn("key file is empty", stderr.getvalue())
+        self.assertEqual(self.engagement_path.read_bytes(), before)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,9 @@ Exit codes (mirroring the AD assessment framework):
 from __future__ import annotations
 
 import datetime
+import os
+import re
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,6 +41,7 @@ from .reporting import (
 EXIT_OK = 0
 EXIT_FATAL = 1
 EXIT_INCOMPLETE = 2
+REVISION_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 
 # Per-cloud defaults: display label, control catalog, and baseline thresholds.
 CLOUDS = {
@@ -96,6 +100,28 @@ class RunResult:
     message: str
 
 
+def source_revision() -> str:
+    """Return the immutable source revision when supplied or locally discoverable."""
+    configured = os.environ.get("CSAF_SOURCE_REVISION", "").strip()
+    if REVISION_PATTERN.fullmatch(configured):
+        return configured.lower()
+
+    repository_root = Path(__file__).resolve().parent.parent
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repository_root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError, OSError):
+        return "unknown"
+    discovered = completed.stdout.strip()
+    return discovered.lower() if REVISION_PATTERN.fullmatch(discovered) else "unknown"
+
+
 def run_assessment(config: RunConfig) -> RunResult:
     run_id = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out_dir = Path(config.output_dir)
@@ -124,6 +150,8 @@ def run_assessment(config: RunConfig) -> RunResult:
         if config.engagement_key_path:
             with open(config.engagement_key_path, "rb") as handle:
                 signing_key = handle.read().strip()
+            if not signing_key:
+                raise ValueError("Engagement key file is empty.")
 
         allowed, reason = engagement.authorize_profile(config.profile, signing_key=signing_key)
         logger.info("engagement", f"Profile '{config.profile}' authorization: {reason}")
@@ -135,6 +163,14 @@ def run_assessment(config: RunConfig) -> RunResult:
         controls = catalog.for_profile(config.profile)
         # Honour baseline not-applicable exclusions.
         controls = [c for c in controls if c.id not in baseline.not_applicable_controls]
+        if not controls:
+            message = (
+                f"Profile '{config.profile}' selected no controls for cloud '{config.cloud}'. "
+                "Choose a supported profile or provide a catalog with controls for that profile."
+            )
+            logger.error("catalog", message)
+            logger.close()
+            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
         selected_ids = {c.id for c in controls}
         logger.info("catalog", f"Selected {len(controls)} controls for profile '{config.profile}'.")
 
@@ -200,6 +236,7 @@ def run_assessment(config: RunConfig) -> RunResult:
         compliance = rollup(results)
         detection_coverage = compute_detection_coverage(results)
 
+        revision = source_revision()
         context = {
             "runId": run_id,
             "cloud": cloud_label,
@@ -207,6 +244,7 @@ def run_assessment(config: RunConfig) -> RunResult:
             "profile": config.profile,
             "regions": config.regions,
             "frameworkVersion": FRAMEWORK_VERSION,
+            "sourceRevision": revision,
             "engagementId": engagement.engagement_id,
             "selfCheck": config.self_check,
         }
@@ -225,7 +263,6 @@ def run_assessment(config: RunConfig) -> RunResult:
         write_executive_html(
             findings, coverage, risk, compliance, context, out_dir, delta=delta, detection_coverage=detection_coverage
         )
-        write_manifest(out_dir, cloud_label, account_id, config.profile)
 
         # Report any selected control that did not complete.
         for control_id in not_tested_ids:
@@ -243,6 +280,9 @@ def run_assessment(config: RunConfig) -> RunResult:
         logger.info("runner", message)
         if not all_executed:
             logger.warn("runner", "CompletedWithErrors: not every selected control executed.")
+        # The logger is flushed after every record. Write the manifest only
+        # after the final log event so its hashes describe the completed run.
+        write_manifest(out_dir, cloud_label, account_id, config.profile, source_revision=revision)
         logger.close()
         return RunResult(exit_code, str(out_dir), coverage.to_dict(), risk, len(findings), all_executed, message)
 

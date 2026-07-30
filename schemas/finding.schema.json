@@ -27,7 +27,7 @@
     "Severity": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
     "RiskScore": { "type": "integer", "minimum": 0, "maximum": 100 },
     "Confidence": { "enum": ["LOW", "MEDIUM", "HIGH"] },
-    "Cloud": { "enum": ["AWS", "AZURE", "GCP"] },
+    "Cloud": { "enum": ["AWS", "Azure", "GCP", "K8s"] },
     "AccountId": { "type": "string" },
     "Region": { "type": "string" },
     "ResourceType": { "type": "string" },

@@ -70,6 +70,21 @@ class TestArmReadOnlyGuard(unittest.TestCase):
         items = session.get_value("/things", "2022-12-01")
         self.assertEqual([i["n"] for i in items], [1, 2])
 
+    def test_absolute_url_to_untrusted_host_is_blocked_before_http(self):
+        with self.assertRaisesRegex(AzureReadOnlyViolation, "untrusted host"):
+            self.session.request("GET", "https://example.invalid/steal-token")
+        self.assertEqual(self.http.calls, [])
+
+    def test_credentialed_url_with_userinfo_or_nonstandard_port_is_blocked(self):
+        for url in (
+            "https://attacker@example.invalid@management.azure.com/page",
+            "https://management.azure.com:8443/page",
+            "https://management.azure.com:not-a-port/page",
+        ):
+            with self.subTest(url=url), self.assertRaises(AzureReadOnlyViolation):
+                self.session.request("GET", url)
+        self.assertEqual(self.http.calls, [])
+
 
 class FakeGcpHttp:
     def __init__(self):

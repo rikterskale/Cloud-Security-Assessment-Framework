@@ -26,12 +26,14 @@ def canonical_bytes(data: dict) -> bytes:
 
 def sign(data: dict, key: bytes) -> str:
     """Return a hex HMAC-SHA256 digest of ``data`` under ``key``."""
+    if not key:
+        raise ValueError("Engagement signing key must not be empty.")
     return hmac.new(key, canonical_bytes(data), hashlib.sha256).hexdigest()
 
 
 def verify(data: dict, signature: str | None, key: bytes) -> bool:
     """Constant-time verification; a missing/empty signature never verifies."""
-    if not signature:
+    if not signature or not key:
         return False
     expected = sign(data, key)
     return hmac.compare_digest(expected, signature)

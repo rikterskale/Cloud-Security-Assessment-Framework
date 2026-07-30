@@ -100,6 +100,28 @@ class TestBucketPublicAccess(S3TestCase):
         result = self.module.bucket_public_access(make_control(), ctx)
         self.assertEqual(result.status, "Pass")
 
+    def test_policy_access_denied_propagates_instead_of_passing(self):
+        ctx = self.ctx(
+            buckets=["locked"],
+            s3_responses={
+                "get_bucket_policy_status": Exception("AccessDenied"),
+                "get_bucket_acl": {"Grants": []},
+            },
+        )
+        with self.assertRaisesRegex(Exception, "AccessDenied"):
+            self.module.bucket_public_access(make_control(), ctx)
+
+    def test_acl_error_propagates_instead_of_passing(self):
+        ctx = self.ctx(
+            buckets=["locked"],
+            s3_responses={
+                "get_bucket_policy_status": {"PolicyStatus": {"IsPublic": False}},
+                "get_bucket_acl": Exception("ThrottlingException"),
+            },
+        )
+        with self.assertRaisesRegex(Exception, "ThrottlingException"):
+            self.module.bucket_public_access(make_control(), ctx)
+
 
 class TestBucketEncryption(S3TestCase):
     def test_missing_encryption_and_access_denied_are_offenders(self):

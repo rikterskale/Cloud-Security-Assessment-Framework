@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 from pathlib import Path
@@ -43,7 +44,13 @@ class EvidenceStore:
         return str(path.relative_to(self.root))
 
 
-def write_manifest(root: Path, cloud: str, account_scope: str, profile: str) -> Path:
+def write_manifest(
+    root: Path,
+    cloud: str,
+    account_scope: str,
+    profile: str,
+    source_revision: str = "unknown",
+) -> Path:
     """Hash every artifact under ``root`` (except the manifest itself)."""
     root = Path(root)
     manifest_path = root / "manifest.json"
@@ -51,25 +58,33 @@ def write_manifest(root: Path, cloud: str, account_scope: str, profile: str) -> 
     for path in sorted(root.rglob("*")):
         if path.is_file() and path.name != "manifest.json":
             stat = path.stat()
+            last_write_utc = (
+                datetime.datetime.fromtimestamp(stat.st_mtime, datetime.timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
             artifacts.append(
                 {
                     "FileName": path.name,
                     "RelativePath": str(path.relative_to(root)).replace("\\", "/"),
                     "SHA256": sha256_file(path),
                     "ByteLength": stat.st_size,
-                    "LastWriteTimeUtc": utcnow_iso(),
+                    "LastWriteTimeUtc": last_write_utc,
                 }
             )
     manifest = {
         "SchemaVersion": SCHEMA_VERSION,
         "FrameworkVersion": FRAMEWORK_VERSION,
+        "SourceRevision": source_revision,
         "GeneratedAtUtc": utcnow_iso(),
         "Cloud": cloud,
         "AccountScope": account_scope,
         "AssessmentProfile": profile,
         "HashAlgorithm": "SHA256",
         "ConfidentialityNotice": (
-            "This manifest proves artifact integrity only. It does not encrypt assessment evidence."
+            "This manifest is an integrity inventory. "
+            "It does not independently authenticate or encrypt assessment evidence."
         ),
         "ArtifactCount": len(artifacts),
         "Artifacts": artifacts,
