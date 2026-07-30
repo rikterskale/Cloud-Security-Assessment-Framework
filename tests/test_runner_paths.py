@@ -2,11 +2,14 @@
 
 import datetime
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from csaf.runner import EXIT_FATAL, EXIT_INCOMPLETE, EXIT_OK, RunConfig, run_assessment
+from csaf.engagement_signing import sign
+from csaf.runner import EXIT_FATAL, EXIT_INCOMPLETE, EXIT_OK, RunConfig, run_assessment, source_revision
 
 REPO = Path(__file__).resolve().parent.parent
 CATALOG = str(REPO / "controls" / "control-catalog.json")
@@ -32,6 +35,27 @@ def write_json(directory, name, payload):
     return str(path)
 
 
+def write_signed_engagement(directory, **overrides):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    data = {
+        "schemaVersion": "1.0",
+        "engagementId": "ENG-TEST",
+        "cloud": "AWS",
+        "authorizedAccounts": ["000000000000"],
+        "authorizedRegions": ["us-east-1"],
+        "activeValidationApproved": True,
+        "windowStartUtc": (now - datetime.timedelta(hours=1)).isoformat(),
+        "windowEndUtc": (now + datetime.timedelta(hours=1)).isoformat(),
+    }
+    data.update(overrides)
+    key = b"test-shared-secret"
+    data["signature"] = sign(data, key)
+    engagement_path = write_json(directory, "engagement.json", data)
+    key_path = Path(directory) / "engagement.key"
+    key_path.write_bytes(key)
+    return engagement_path, str(key_path)
+
+
 class TestAuthorizationPaths(unittest.TestCase):
     def test_validation_without_engagement_is_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -41,38 +65,31 @@ class TestAuthorizationPaths(unittest.TestCase):
 
     def test_validation_with_approved_in_window_engagement_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
-            now = datetime.datetime.now(datetime.timezone.utc)
-            engagement = write_json(
-                tmp,
-                "engagement.json",
-                {
-                    "engagementId": "ENG-TEST",
-                    "activeValidationApproved": True,
-                    "windowStartUtc": (now - datetime.timedelta(hours=1)).isoformat(),
-                    "windowEndUtc": (now + datetime.timedelta(hours=1)).isoformat(),
-                },
-            )
+            engagement, key = write_signed_engagement(tmp)
             out = Path(tmp) / "out"
-            result = run(out, profile="Validation", engagement_path=engagement)
+            result = run(out, profile="Validation", engagement_path=engagement, engagement_key_path=key)
             self.assertNotEqual(result.exit_code, EXIT_FATAL)
+            run_dir = Path(result.output_dir)
             rows = [
-                json.loads(line) for line in (out / "control-results.jsonl").read_text(encoding="utf-8").splitlines()
+                json.loads(line)
+                for line in (run_dir / "control-results.jsonl").read_text(encoding="utf-8").splitlines()
             ]
             # The validation-only privesc control is included under Validation.
             self.assertIn("CSAF-AWS-IAM-010", {r["ControlId"] for r in rows})
 
     def test_validation_outside_window_is_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:
-            engagement = write_json(
+            engagement, key = write_signed_engagement(
                 tmp,
-                "engagement.json",
-                {
-                    "activeValidationApproved": True,
-                    "windowStartUtc": "2000-01-01T00:00:00Z",
-                    "windowEndUtc": "2000-01-02T00:00:00Z",
-                },
+                windowStartUtc="2000-01-01T00:00:00Z",
+                windowEndUtc="2000-01-02T00:00:00Z",
             )
-            result = run(Path(tmp) / "out", profile="Validation", engagement_path=engagement)
+            result = run(
+                Path(tmp) / "out",
+                profile="Validation",
+                engagement_path=engagement,
+                engagement_key_path=key,
+            )
             self.assertEqual(result.exit_code, EXIT_FATAL)
 
 
@@ -90,6 +107,21 @@ class TestFatalPaths(unittest.TestCase):
             result = run(Path(tmp) / "out", baseline_path=str(bad))
             self.assertEqual(result.exit_code, EXIT_FATAL)
 
+    def test_profile_selecting_no_controls_is_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run(tmp, profile="Inventory")
+            self.assertEqual(result.exit_code, EXIT_FATAL)
+            self.assertIn("selected no controls", result.message)
+            self.assertFalse((Path(tmp) / "technical-report.json").exists())
+
+    def test_empty_engagement_key_is_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key_path = Path(tmp) / "empty.key"
+            key_path.write_text(" \n", encoding="utf-8")
+            result = run(Path(tmp) / "out", engagement_key_path=str(key_path))
+            self.assertEqual(result.exit_code, EXIT_FATAL)
+            self.assertIn("key file is empty", result.message)
+
 
 class TestBaselineExclusions(unittest.TestCase):
     def test_not_applicable_controls_removed_from_selection(self):
@@ -101,7 +133,7 @@ class TestBaselineExclusions(unittest.TestCase):
                 trimmed.coverage["SelectedControls"],
                 reference.coverage["SelectedControls"] - 1,
             )
-            rows = (Path(tmp) / "trimmed" / "control-results.jsonl").read_text(encoding="utf-8")
+            rows = (Path(trimmed.output_dir) / "control-results.jsonl").read_text(encoding="utf-8")
             self.assertNotIn("CSAF-AWS-IAM-001", rows)
 
     def test_excluding_the_not_tested_control_yields_exit_ok(self):
@@ -119,15 +151,17 @@ class TestBaselineExclusions(unittest.TestCase):
             self.assertEqual(result.exit_code, EXIT_INCOMPLETE)
             self.assertIn(
                 "CSAF-AWS-OPS-001",
-                json.loads((Path(tmp) / "coverage-report.json").read_text(encoding="utf-8"))["NotTestedControls"],
+                json.loads((Path(result.output_dir) / "coverage-report.json").read_text(encoding="utf-8"))[
+                    "NotTestedControls"
+                ],
             )
 
 
 class TestRunLogs(unittest.TestCase):
     def test_structured_jsonl_log_written_and_parseable(self):
         with tempfile.TemporaryDirectory() as tmp:
-            run(tmp, log_level="WARN")  # demo posture emits not-completed warnings
-            jsonl_logs = list(Path(tmp).glob("assessment-*.jsonl"))
+            result = run(tmp, log_level="WARN")  # demo posture emits not-completed warnings
+            jsonl_logs = list(Path(result.output_dir).glob("assessment-*.jsonl"))
             self.assertEqual(len(jsonl_logs), 1)
             records = [json.loads(line) for line in jsonl_logs[0].read_text(encoding="utf-8").splitlines()]
             self.assertTrue(records, "expected at least one structured log record")
@@ -136,6 +170,27 @@ class TestRunLogs(unittest.TestCase):
                 self.assertIn("message", record)
                 self.assertIn("runId", record)
             self.assertTrue(any("NOT COMPLETED" in r["message"] for r in records))
+
+
+class TestRunIsolation(unittest.TestCase):
+    def test_repeated_runs_create_distinct_complete_directories(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = run(tmp)
+            second = run(tmp)
+            first_dir = Path(first.output_dir)
+            second_dir = Path(second.output_dir)
+            self.assertNotEqual(first_dir, second_dir)
+            self.assertEqual(first_dir.parent, Path(tmp))
+            self.assertEqual(second_dir.parent, Path(tmp))
+            self.assertTrue((first_dir / "manifest.json").exists())
+            self.assertTrue((second_dir / "manifest.json").exists())
+
+
+class TestSourceRevision(unittest.TestCase):
+    def test_environment_revision_is_normalized_and_preferred(self):
+        configured = "A" * 40
+        with patch.dict(os.environ, {"CSAF_SOURCE_REVISION": configured}):
+            self.assertEqual(source_revision(), configured.lower())
 
 
 if __name__ == "__main__":

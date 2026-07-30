@@ -5,6 +5,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 CI = REPO / ".github" / "workflows" / "ci.yml"
+RELEASE = REPO / ".github" / "workflows" / "release.yml"
 
 
 class TestCIConfig(unittest.TestCase):
@@ -26,6 +27,8 @@ class TestCIConfig(unittest.TestCase):
             "coverage run",
             "--fail-under=90",
             "cyclonedx-json",
+            "--require-hashes",
+            "installed-wheel smoke test",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 
@@ -37,6 +40,18 @@ class TestCIConfig(unittest.TestCase):
     def test_python_matrix(self):
         for version in ["3.10", "3.12"]:
             self.assertIn(version, self.text, f"CI matrix missing Python {version}")
+
+    def test_release_builds_and_attests_distributions(self):
+        text = RELEASE.read_text(encoding="utf-8")
+        for token in [
+            "python -m build",
+            "twine check",
+            "cyclonedx-json",
+            "SHA256SUMS",
+            "actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d",
+            "gh release create",
+        ]:
+            self.assertIn(token, text)
 
 
 if __name__ == "__main__":

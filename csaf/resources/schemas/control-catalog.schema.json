@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/csaf/control-catalog.schema.json",
+  "title": "CSAF control catalog",
+  "type": "object",
+  "required": ["schemaVersion", "catalogVersion", "cloud", "profiles", "controls"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "catalogVersion": { "type": "string", "minLength": 1 },
+    "cloud": { "enum": ["AWS", "Azure", "GCP", "K8s"] },
+    "profiles": {
+      "type": "object",
+      "properties": {
+        "Inventory": { "type": "string" },
+        "Assessment": { "type": "string" },
+        "Validation": { "type": "string" },
+        "AdversarySimulation": { "type": "string" }
+      },
+      "required": ["Inventory", "Assessment", "Validation", "AdversarySimulation"],
+      "additionalProperties": false
+    },
+    "controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "category",
+          "module",
+          "check",
+          "defaultSeverity",
+          "expectedState",
+          "profiles",
+          "mappings",
+          "references"
+        ],
+        "properties": {
+          "id": { "type": "string", "pattern": "^CSAF-[A-Z0-9]+-[A-Z0-9]+-[0-9]{3}$" },
+          "title": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "module": { "type": "string", "minLength": 1 },
+          "check": { "type": "string", "minLength": 1 },
+          "defaultSeverity": { "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+          "expectedState": { "type": "string" },
+          "profiles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["Inventory", "Assessment", "Validation", "AdversarySimulation"] }
+          },
+          "mappings": { "type": "array", "items": { "type": "string" } },
+          "references": { "type": "array", "items": { "type": "string" } },
+          "validationOnly": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

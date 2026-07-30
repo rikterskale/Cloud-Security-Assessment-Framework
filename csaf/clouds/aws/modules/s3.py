@@ -11,6 +11,18 @@ PUBLIC_GRANT_URIS = (
     "http://acs.amazonaws.com/groups/global/AuthenticatedUsers",
 )
 
+NO_BUCKET_POLICY_CODES = {"NoSuchBucketPolicy"}
+
+
+def _error_code(exc: Exception) -> str:
+    """Return a structured AWS error code when available, else its text."""
+    response = getattr(exc, "response", None)
+    if isinstance(response, dict):
+        error = response.get("Error", {})
+        if isinstance(error, dict) and error.get("Code"):
+            return str(error["Code"])
+    return str(exc)
+
 
 class S3Module(AssessmentModule):
     name = "s3"
@@ -47,15 +59,18 @@ class S3Module(AssessmentModule):
                 status = s3.get_bucket_policy_status(Bucket=name)["PolicyStatus"]
                 if status.get("IsPublic"):
                     public, reason = True, "policy public"
-            except Exception:  # noqa: BLE001 - no policy is fine
-                pass
+            except Exception as exc:  # noqa: BLE001 - only an explicitly absent policy is fine
+                if _error_code(exc) not in NO_BUCKET_POLICY_CODES:
+                    raise
             try:
                 acl = s3.get_bucket_acl(Bucket=name)
                 for grant in acl.get("Grants", []):
                     if grant.get("Grantee", {}).get("URI") in PUBLIC_GRANT_URIS:
                         public, reason = True, (reason + " acl public").strip()
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception:
+                # A bucket always has an ACL. Failure to inspect it means public
+                # access was not established and must never be reported Pass.
+                raise
             if public:
                 offenders.append((name, reason))
         if not offenders:

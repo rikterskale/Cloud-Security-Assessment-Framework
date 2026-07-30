@@ -1,6 +1,7 @@
 """Evidence store and the tamper-evident SHA-256 manifest."""
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -94,6 +95,23 @@ class TestManifest(unittest.TestCase):
         manifest = json.loads(write_manifest(self.root, "AWS", "1", "Assessment").read_text(encoding="utf-8"))
         findings = next(a for a in manifest["Artifacts"] if a["RelativePath"] == "findings.json")
         self.assertEqual(findings["ByteLength"], 2)
+
+    def test_last_write_time_comes_from_file_metadata(self):
+        self.write_artifacts()
+        findings_path = self.root / "findings.json"
+        expected_epoch = 1_700_000_000
+        os.utime(findings_path, (expected_epoch, expected_epoch))
+        manifest = json.loads(write_manifest(self.root, "AWS", "1", "Assessment").read_text(encoding="utf-8"))
+        findings = next(a for a in manifest["Artifacts"] if a["RelativePath"] == "findings.json")
+        self.assertEqual(findings["LastWriteTimeUtc"], "2023-11-14T22:13:20Z")
+
+    def test_source_revision_is_recorded(self):
+        self.write_artifacts()
+        revision = "a" * 40
+        manifest = json.loads(
+            write_manifest(self.root, "AWS", "1", "Assessment", source_revision=revision).read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["SourceRevision"], revision)
 
 
 if __name__ == "__main__":

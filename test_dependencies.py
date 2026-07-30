@@ -39,18 +39,22 @@ def main() -> int:
     )
     all_required_ok &= ok
 
-    for module in ("boto3", "botocore"):
+    required_modules = {
+        "boto3": "needed for live AWS assessment",
+        "botocore": "needed for live AWS assessment",
+        "jsonschema": "required by runtime configuration validation",
+    }
+    for module, requirement in required_modules.items():
         found = _find(module)
         _, ok = _check(
             f"{module} installed",
             found,
-            "available" if found else "missing (needed for live AWS assessment)",
+            "available" if found else f"missing ({requirement})",
             required=True,
         )
         all_required_ok &= ok
 
     optional = {
-        "jsonschema": "schema validation tests skipped",
         "azure.identity": "needed for live Azure assessment (pip install -r requirements-azure.txt)",
         "google.auth": "needed for live GCP assessment (pip install -r requirements-gcp.txt)",
         "requests": "needed for live Azure/GCP assessment",

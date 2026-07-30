@@ -14,6 +14,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .engagement_signing import verify as verify_signature
+from .schema_validation import validate_instance
+
+ACTIVE_PROFILES = {"Validation", "AdversarySimulation"}
 
 
 def _parse_utc(value: str | None) -> datetime.datetime | None:
@@ -29,6 +32,7 @@ class Engagement:
     cloud: str = "AWS"
     authorized_accounts: list[str] = field(default_factory=list)
     authorized_regions: list[str] = field(default_factory=list)
+    authorized_source_addresses: list[str] = field(default_factory=list)
     window_start_utc: str | None = None
     window_end_utc: str | None = None
     operator_contacts: list[str] = field(default_factory=list)
@@ -37,6 +41,7 @@ class Engagement:
     active_validation_approved: bool = False
     attestations: dict = field(default_factory=dict)
     signature: str | None = None
+    configured: bool = False
     _signed_content: dict = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -45,6 +50,7 @@ class Engagement:
             return cls()
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
+        validate_instance(data, "engagement.schema.json", path)
         signature = data.get("signature")
         signed_content = {k: v for k, v in data.items() if k != "signature"}
         return cls(
@@ -53,6 +59,7 @@ class Engagement:
             cloud=data.get("cloud", "AWS"),
             authorized_accounts=data.get("authorizedAccounts", []),
             authorized_regions=data.get("authorizedRegions", []),
+            authorized_source_addresses=data.get("authorizedSourceAddresses", []),
             window_start_utc=data.get("windowStartUtc"),
             window_end_utc=data.get("windowEndUtc"),
             operator_contacts=data.get("operatorContacts", []),
@@ -61,6 +68,7 @@ class Engagement:
             active_validation_approved=bool(data.get("activeValidationApproved", False)),
             attestations=data.get("attestations", {}),
             signature=signature,
+            configured=True,
             _signed_content=signed_content,
         )
 
@@ -85,23 +93,62 @@ class Engagement:
     def account_authorized(self, account_id: str) -> bool:
         return not self.authorized_accounts or account_id in self.authorized_accounts
 
+    def authorize_scope(
+        self,
+        cloud: str,
+        regions: list[str],
+        account_id: str | None = None,
+        *,
+        active: bool = False,
+    ) -> tuple[bool, str]:
+        """Authorize the normalized provider scope before a run starts."""
+        if not self.configured:
+            if active:
+                return False, "Active profiles require an explicit engagement file."
+            return True, "No engagement supplied; read-only assessment is unscoped."
+        if self.cloud != cloud:
+            return False, f"Engagement cloud {self.cloud!r} does not authorize {cloud!r}."
+        if active and not self.authorized_accounts:
+            return False, "Active profiles require at least one authorized account or context."
+        if account_id is not None and not self.account_authorized(account_id):
+            return False, f"Account or context {account_id!r} is not in authorizedAccounts."
+        if cloud == "AWS":
+            requested_regions = set(regions)
+            authorized_regions = set(self.authorized_regions)
+            if active and not authorized_regions:
+                return False, "Active AWS profiles require at least one authorized region."
+            unauthorized = sorted(requested_regions - authorized_regions) if authorized_regions else []
+            if unauthorized:
+                return False, f"Requested AWS regions are outside authorizedRegions: {unauthorized}."
+        if active and self.authorized_source_addresses:
+            return (
+                False,
+                "authorizedSourceAddresses cannot be enforced by this local CLI; "
+                "enforce source restrictions externally or remove that field.",
+            )
+        return True, "Cloud, account/context, and applicable region scope are authorized."
+
     def authorize_profile(self, profile: str, signing_key: bytes | None = None) -> tuple[bool, str]:
         """Return (allowed, reason) for running a profile under this engagement.
 
         Inventory and Assessment are read-only and always allowed. Validation
         and AdversarySimulation require explicit approval and an active window.
 
-        ``signing_key`` is opt-in: when supplied, the engagement file's content
-        must verify against it (see ``engagement_signing``) or authorization is
-        refused, so a silent edit to ``activeValidationApproved`` after
-        signing is caught rather than trusted.
+        Active profiles require ``signing_key`` and the engagement file's
+        content must verify against it (see ``engagement_signing``), so a
+        silent edit to ``activeValidationApproved`` after signing is caught
+        rather than trusted.
         """
-        if profile in ("Inventory", "Assessment"):
+        if profile not in ACTIVE_PROFILES:
             return True, "Read-only profile; no active-validation authorization required."
+        if signing_key is None:
+            return False, "Active profiles require --engagement-key-file and a signed engagement."
         if not self.active_validation_approved:
             return False, "Engagement does not approve active validation (activeValidationApproved=false)."
+        if not self.window_start_utc or not self.window_end_utc:
+            return False, "Active profiles require both windowStartUtc and windowEndUtc."
         if not self.in_window():
             return False, "Current time is outside the engagement's authorized window."
-        if signing_key is not None and not self.verify_signature(signing_key):
+        if not self.verify_signature(signing_key):
             return False, "Engagement signature verification failed; the file may have been altered after signing."
         return True, "Active validation approved and within the authorized window."

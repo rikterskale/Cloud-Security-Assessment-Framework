@@ -8,3 +8,5 @@ out/
 *.egg-info/
 .coverage
 htmlcov/
+build/
+dist/

@@ -57,7 +57,9 @@ class TestMain(unittest.TestCase):
             # The demo posture leaves one control untested -> CompletedWithErrors.
             self.assertEqual(code, 2)
             self.assertIn("[INCOMPLETE]", stdout.getvalue())
-            self.assertTrue((Path(tmp) / "manifest.json").exists())
+            run_dirs = [path for path in Path(tmp).iterdir() if path.is_dir()]
+            self.assertEqual(len(run_dirs), 1)
+            self.assertTrue((run_dirs[0] / "manifest.json").exists())
 
     def test_fatal_run_returns_one(self):
         with tempfile.TemporaryDirectory() as tmp:

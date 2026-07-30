@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from .schema_validation import validate_instance
+
 DEFAULT_THRESHOLDS = {
     "passwordMinLength": 14,
     "passwordRequireSymbols": True,
@@ -45,7 +47,9 @@ class Baseline:
         if not path:
             return cls()
         with open(path, encoding="utf-8") as handle:
-            return cls(json.load(handle))
+            data = json.load(handle)
+        validate_instance(data, "baseline.schema.json", path)
+        return cls(data)
 
     def get(self, key: str, default=None):
         return self.thresholds.get(key, default)
