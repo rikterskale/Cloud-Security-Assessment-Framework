@@ -1,7 +1,7 @@
 """Small documentation drift guards for the supported user-facing contract."""
 
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from invoke_assessment import build_parser
 
