@@ -12,7 +12,7 @@
 This document is direct evidence that the newest CSAF provider — Kubernetes — is fully functional: its read-only API guardrail (`ReadOnlyApiClient`), all three check modules, and the full end-to-end reporting pipeline. Two independent executions were performed:
 
 1. **Unit test suite** — every Kubernetes-specific test file, run verbose, against fake (non-network) Kubernetes API doubles built with `types.SimpleNamespace` to mirror the real client's attribute-style typed objects.
-2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud k8s --self-check`), producing the exact same 14-artifact output a live cluster assessment would produce.
+2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud k8s --self-check`), producing the same output file set as a live cluster assessment.
 
 No cluster credentials, network access, or the `kubernetes` Python package were required for either run — confirmed absent in this environment (see §3.5).
 
@@ -147,7 +147,7 @@ out/
 └── technical-report.json
 ```
 
-Identical 14-artifact contract to AWS/Azure/GCP — proof that the cloud-agnostic core (reporting, coverage, manifest) required zero Kubernetes-specific changes to support a fourth provider.
+Identical output file set to AWS/Azure/GCP — evidence that the cloud-agnostic core (reporting, coverage, manifest) supports the fourth provider.
 
 ### 4.2 `control-results.jsonl` — full content (all 5 controls)
 

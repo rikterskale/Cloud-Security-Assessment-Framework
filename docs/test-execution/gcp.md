@@ -12,7 +12,7 @@
 This document is direct evidence that the GCP provider's read-only guardrail (`GcpSession`), all seven GCP check modules, and the full end-to-end reporting pipeline actually execute correctly. Two independent executions were performed:
 
 1. **Unit test suite** — every GCP-specific test file/class, run verbose, against fake (non-network) Google Cloud REST API doubles.
-2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud gcp --self-check`), producing the exact same 14-artifact output a live GCP assessment would produce.
+2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud gcp --self-check`), producing the same output file set as a live GCP assessment.
 
 No GCP credentials, network access, or the `google-auth` package were required for either run — confirmed absent in this environment (see §3.5).
 

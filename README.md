@@ -68,7 +68,13 @@ Install from a source checkout or a built wheel. Default catalogs, baselines,
 and runtime schemas are package resources, so the `csaf-assess` console script
 works from any current directory.
 
+Using a virtual environment is recommended. On Windows, replace `python3`
+below with `py` if that is the command provided by your Python installation.
+
 ```bash
+python3 -m venv .venv
+# macOS/Linux: source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
 python3 -m pip install -r requirements.txt
 python3 -m pip install .
 ```
@@ -192,6 +198,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--output-dir` | `csaf-output` | Parent directory; each assessment gets a unique run subdirectory |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
+| `--help` | off | Show the CLI help and exit |
 
 ## Authorization profiles
 
@@ -462,6 +469,9 @@ out/
     ├── manifest.json                # source revision + artifact SHA-256 inventory
     └── evidence/                    # raw collector evidence, namespaced
 ```
+
+The current release writes 17 possible top-level files in the run directory;
+the `evidence/` directory may contain additional raw evidence files.
 
 Start with `coverage-report.csv` to confirm every selected control ran, then
 `findings.csv` for prioritized weaknesses. `NotTested` and `Error` are never

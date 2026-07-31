@@ -9,7 +9,8 @@ Detailed, evidence-based records of running CSAF's unit test suite and offline `
 - Independent SHA-256 hash verification of the manifest's tamper-evidence claim
 - Confirmation that each cloud's optional SDK (`boto3`, `azure-identity`, `google-auth`, `kubernetes`) was genuinely absent from the environment during the run
 
-Generated 2026-07-29 against `main`.
+Generated 2026-07-29 against `main`. These reports are historical snapshots;
+they do not establish that the same results hold for the current checkout.
 
 | Report | Cloud | Unit tests | Self-check result |
 |---|---|---|---|
@@ -18,4 +19,4 @@ Generated 2026-07-29 against `main`.
 | [gcp.md](gcp.md) | GCP | 76 / 76 passed | 5 findings, risk 45.0 (HIGH), coverage 18/19 |
 | [k8s.md](k8s.md) | Kubernetes | 26 / 26 passed | 4 findings, risk 55.0 (HIGH), coverage 4/5 |
 
-These are point-in-time snapshots, not a substitute for re-running the suite (`python3 -m unittest discover -s tests`) or the self-check (`python3 invoke_assessment.py --self-check --cloud <cloud>`) yourself against the current codebase.
+These are point-in-time snapshots, not a substitute for re-running the suite (`python3 -m unittest discover -s tests`) or the self-check (`python3 invoke_assessment.py --self-check --cloud <cloud>`) yourself against the current codebase. The runner currently writes 17 possible top-level files plus the `evidence/` directory; older report text that calls this a “14-artifact” output is historical wording.

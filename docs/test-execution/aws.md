@@ -12,7 +12,7 @@
 This document is direct evidence that the AWS provider's read-only guardrail, all seven AWS check modules, the multi-region concurrency path, and the full end-to-end reporting pipeline actually execute correctly — not just that the code exists. Two independent executions were performed:
 
 1. **Unit test suite** — every AWS-specific test file, run verbose, against fake (non-network) AWS API doubles.
-2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--self-check`), producing the exact same 14-artifact output a live AWS assessment would produce.
+2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--self-check`), producing the same output file set as a live AWS assessment.
 
 No AWS credentials, network access, or the `boto3`/`botocore` packages were required for either run. `boto3`/`botocore` were in fact **not installed** in this environment at the time of the run (confirmed below), which independently demonstrates the framework's design claim that these are optional, lazily-imported dependencies.
 

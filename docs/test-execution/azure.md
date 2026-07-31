@@ -12,7 +12,7 @@
 This document is direct evidence that the Azure provider's read-only guardrail (`ArmSession`), all eight Azure check modules, and the full end-to-end reporting pipeline actually execute correctly. Two independent executions were performed:
 
 1. **Unit test suite** — every Azure-specific test file/class, run verbose, against fake (non-network) ARM REST API doubles.
-2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud azure --self-check`), producing the exact same 14-artifact output a live Azure assessment would produce.
+2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud azure --self-check`), producing the same output file set as a live Azure assessment.
 
 No Azure credentials, network access, or the `azure-identity`/`requests` packages were required for either run — confirmed absent in this environment (see §3.5).
 
