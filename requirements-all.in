@@ -4,3 +4,8 @@
 -r requirements-gcp.txt
 -r requirements-k8s.txt
 -r requirements-ci.txt
+
+# Keep the shared lock installable across all supported CI Python versions.
+rpds-py<0.31
+backports.tarfile>=1.2
+importlib-metadata>=4.11.4
