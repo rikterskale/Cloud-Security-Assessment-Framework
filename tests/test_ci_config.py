@@ -28,7 +28,11 @@ class TestCIConfig(unittest.TestCase):
             "--fail-under=90",
             "cyclonedx-json",
             "--require-hashes",
-            "installed-wheel smoke test",
+            "compileall",
+            "pip check",
+            "safe_load",
+            "source-distribution",
+            "installed-package smoke tests",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 
@@ -38,7 +42,7 @@ class TestCIConfig(unittest.TestCase):
         self.assertIn("sbom", needs_line, "ci-success must depend on the sbom job")
 
     def test_python_matrix(self):
-        for version in ["3.10", "3.12"]:
+        for version in ["3.10", "3.11", "3.12", "3.13", "3.14"]:
             self.assertIn(version, self.text, f"CI matrix missing Python {version}")
 
     def test_release_builds_and_attests_distributions(self):
