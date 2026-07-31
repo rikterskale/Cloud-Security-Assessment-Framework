@@ -145,12 +145,16 @@ jobs:
       - run: python -m twine check dist/*
       - name: Install wheel without repository-relative files
         run: |
-          python -m venv --system-site-packages wheel-venv
+          python -m venv wheel-venv
+          wheel-venv/bin/pip install --require-hashes -r requirements-lock.txt
           wheel-venv/bin/pip install --no-deps dist/*.whl
+          wheel-venv/bin/python -m pip check
       - name: Install source distribution without repository-relative files
         run: |
-          python -m venv --system-site-packages sdist-venv
+          python -m venv sdist-venv
+          sdist-venv/bin/pip install --require-hashes -r requirements-lock.txt
           sdist-venv/bin/pip install --no-deps dist/*.tar.gz
+          sdist-venv/bin/python -m pip check
       - name: Run installed console script from an unrelated directory
         run: |
           smoke_root=$(mktemp -d)

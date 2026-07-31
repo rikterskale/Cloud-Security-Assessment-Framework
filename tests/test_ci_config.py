@@ -33,6 +33,8 @@ class TestCIConfig(unittest.TestCase):
             "safe_load",
             "source-distribution",
             "installed-package smoke tests",
+            "wheel-venv/bin/python -m pip check",
+            "sdist-venv/bin/python -m pip check",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 

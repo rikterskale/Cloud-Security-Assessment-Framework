@@ -46,12 +46,30 @@ jobs:
           sha256sum dist/*.whl dist/*.tar.gz dist/sbom.cdx.json > dist/SHA256SUMS
       - name: Smoke-test the installed wheel
         run: |
-          python -m venv --system-site-packages wheel-venv
+          python -m venv wheel-venv
+          wheel-venv/bin/pip install --require-hashes -r requirements-lock.txt
           wheel-venv/bin/pip install --no-deps dist/*.whl
+          wheel-venv/bin/python -m pip check
           smoke_root=$(mktemp -d)
           cd "$smoke_root"
           set +e
           "$GITHUB_WORKSPACE/wheel-venv/bin/csaf-assess" --self-check --output-dir reports --log-level ERROR
+          code=$?
+          set -e
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
+            exit "$code"
+          fi
+          test -f "$(find reports -name manifest.json -print -quit)"
+      - name: Smoke-test the installed source distribution
+        run: |
+          python -m venv sdist-venv
+          sdist-venv/bin/pip install --require-hashes -r requirements-lock.txt
+          sdist-venv/bin/pip install --no-deps dist/*.tar.gz
+          sdist-venv/bin/python -m pip check
+          smoke_root=$(mktemp -d)
+          cd "$smoke_root"
+          set +e
+          "$GITHUB_WORKSPACE/sdist-venv/bin/csaf-assess" --self-check --output-dir reports --log-level ERROR
           code=$?
           set -e
           if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
