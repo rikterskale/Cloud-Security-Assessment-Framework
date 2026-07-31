@@ -12,10 +12,7 @@ class DocumentationContractTests(unittest.TestCase):
     def test_readme_mentions_every_cli_option(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         options = {
-            option
-            for action in build_parser()._actions
-            for option in action.option_strings
-            if option.startswith("--")
+            option for action in build_parser()._actions for option in action.option_strings if option.startswith("--")
         }
         self.assertEqual([], sorted(option for option in options if option not in readme))
 
