@@ -16,8 +16,27 @@ silently shadow a core control's implementation.
 
 from __future__ import annotations
 
+import os
 import warnings
 from importlib.metadata import entry_points
+
+ALLOWLIST_ENV = "CSAF_PLUGIN_ALLOWLIST"
+
+
+def _allowlist() -> set[str] | None:
+    """Parse the optional plugin allowlist.
+
+    Trust model: a third-party check module runs in-process with full trust once
+    its distribution is installed, so installing a plugin is an explicit trust
+    decision. For locked-down environments, set ``CSAF_PLUGIN_ALLOWLIST`` to a
+    comma-separated list of entry-point names that may load; any other plugin is
+    skipped (fail closed). Unset (the default) preserves prior behavior and loads
+    every installed plugin. An empty value loads no plugins at all.
+    """
+    raw = os.environ.get(ALLOWLIST_ENV)
+    if raw is None:
+        return None
+    return {name.strip() for name in raw.split(",") if name.strip()}
 
 
 def discover_plugin_modules(group: str, builtin: dict) -> dict:
@@ -29,7 +48,15 @@ def discover_plugin_modules(group: str, builtin: dict) -> dict:
         warnings.warn(f"Plugin discovery for '{group}' failed: {exc}", stacklevel=2)
         return registry
 
+    allowlist = _allowlist()
+
     for entry_point in found:
+        if allowlist is not None and entry_point.name not in allowlist:
+            warnings.warn(
+                f"Skipping plugin module '{entry_point.name}' from '{entry_point.value}': not in {ALLOWLIST_ENV}.",
+                stacklevel=2,
+            )
+            continue
         if entry_point.name in registry:
             warnings.warn(
                 f"Ignoring plugin module '{entry_point.name}' from '{entry_point.value}': "

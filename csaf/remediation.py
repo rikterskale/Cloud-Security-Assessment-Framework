@@ -76,6 +76,9 @@ REMEDIATION = {
     "CSAF-K8S-POD-002": "Remove hostNetwork: true from the pod spec unless required and explicitly approved.",
     "CSAF-K8S-NET-001": "Create a default-deny NetworkPolicy in the namespace, then allow only required traffic.",
     "CSAF-K8S-OPS-001": "Document and periodically test a break-glass procedure for cluster-admin access.",
+    "CSAF-K8S-OPS-002": "Start kube-apiserver with --audit-log-path and an audit policy that records security-relevant events; ship logs to durable storage.",
+    "CSAF-K8S-OPS-003": "Configure an EncryptionConfiguration with an aescbc or KMS provider so Secret resources are encrypted at rest in etcd, then rewrite existing secrets.",
+    "CSAF-K8S-OPS-004": "Enable Pod Security Admission (or an equivalent controller such as OPA/Kyverno) enforcing at least the 'baseline' standard on workload namespaces.",
 }
 
 

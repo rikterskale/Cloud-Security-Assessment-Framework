@@ -1,0 +1,32 @@
+# Code ownership for review routing. See
+# https://docs.github.com/articles/about-code-owners
+#
+# The last matching pattern wins. Security-critical paths are called out
+# explicitly so a reviewer with context is always requested.
+
+# Default owner for everything in the repository.
+*                                   @rikterskale
+
+# Read-only transport guardrails (a bug here could allow a mutating cloud call).
+/csaf/clouds/aws/session.py         @rikterskale
+/csaf/clouds/azure/session.py       @rikterskale
+/csaf/clouds/gcp/session.py         @rikterskale
+/csaf/clouds/k8s/session.py         @rikterskale
+
+# Engagement authorization and signing (scope/window/approval enforcement).
+/csaf/engagement.py                 @rikterskale
+/csaf/engagement_signing.py         @rikterskale
+/csaf/attestation.py                @rikterskale
+/csaf/campaign.py                   @rikterskale
+
+# Release, packaging, and CI trust boundaries.
+/.github/workflows/                 @rikterskale
+/pyproject.toml                     @rikterskale
+/setup.py                           @rikterskale
+/requirements-lock.txt              @rikterskale
+
+# Control data (catalogs, baselines, schemas) — changes alter what is assessed.
+/csaf/resources/                    @rikterskale
+/controls/                          @rikterskale
+/baselines/                         @rikterskale
+/schemas/                           @rikterskale

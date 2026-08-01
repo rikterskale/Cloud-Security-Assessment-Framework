@@ -1,5 +1,7 @@
 # Test Execution Reports
 
+> These are **historical snapshots** (captured 2026-07-29), not current runtime evidence. Re-generate on each release.
+
 Detailed, evidence-based records of running CSAF's unit test suite and offline `--self-check` pipeline for each supported cloud. Each report includes:
 
 - The exact commands run

@@ -24,16 +24,20 @@ class DocumentationContractTests(unittest.TestCase):
                     self.assertIn(f"`{choice}`", readme)
 
     def test_documented_catalog_counts_are_present(self):
+        import json
+
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        catalogs = (
-            (31, "control-catalog.json"),
-            (16, "control-catalog-azure.json"),
-            (19, "control-catalog-gcp.json"),
-            (5, "control-catalog-k8s.json"),
-        )
-        for count, name in catalogs:
-            self.assertIn(f"{count} controls", readme)
-            self.assertTrue((ROOT / "controls" / name).is_file())
+        for name in (
+            "control-catalog.json",
+            "control-catalog-azure.json",
+            "control-catalog-gcp.json",
+            "control-catalog-k8s.json",
+        ):
+            path = ROOT / "controls" / name
+            self.assertTrue(path.is_file())
+            # Count is derived from the catalog so the README can never drift.
+            count = len(json.loads(path.read_text(encoding="utf-8"))["controls"])
+            self.assertIn(f"{count} controls", readme, f"README must state '{count} controls' for {name}")
 
     def test_key_output_artifacts_are_documented(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

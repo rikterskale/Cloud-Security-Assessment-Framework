@@ -183,9 +183,45 @@ jobs:
           run_dir=$(find reports -mindepth 1 -maxdepth 1 -type d | head -n 1)
           test -f "$run_dir/manifest.json"
 
+  test-cross-os:
+    name: Unit tests (cross-OS)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --require-hashes -r requirements-lock.txt
+      - name: Verify installed dependencies
+        run: python -m pip check
+      - name: Unit tests (portable, no shell-specific steps)
+        run: python -m unittest discover -s tests -v
+
+  novice-guides:
+    name: Novice guide validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
+        with:
+          python-version: "3.12"
+      - name: Validate canonical novice guides (fail closed)
+        run: python tests/validate_novice_guides.py
+
   ci-success:
     name: CI success
-    needs: [lint, audit, sbom, test, package]
+    needs: [lint, audit, sbom, test, test-cross-os, package, novice-guides]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

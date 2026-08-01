@@ -2,6 +2,14 @@
 
 Unlike AWS, ARM collection endpoints return resources across every location in
 the subscription, so all modules are evaluated once at "global" scope.
+
+Concurrency: evaluation is intentionally sequential. AWS parallelizes across
+independent *regions* (each with its own isolated cache); a subscription has no
+equivalent partition, so the only parallel unit here would be modules, which
+share one memoization cache and one ARM session whose client is not guaranteed
+thread-safe. CSAF therefore keeps this provider single-threaded by design (a
+safe default) rather than adding unverified parallelism. See README
+"Concurrency model".
 """
 
 from __future__ import annotations

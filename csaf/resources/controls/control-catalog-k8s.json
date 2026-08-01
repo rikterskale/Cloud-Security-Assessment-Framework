@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "catalogVersion": "1.0",
+  "catalogVersion": "2026.1",
   "cloud": "K8s",
   "profiles": {
     "Inventory": "Collects configuration inventory without issuing most security conclusions.",
@@ -17,9 +17,18 @@
       "check": "cluster_admin_bindings",
       "defaultSeverity": "CRITICAL",
       "expectedState": "Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Kubernetes:5.1.1", "MITRE:T1078"],
-      "references": ["https://kubernetes.io/docs/reference/access-authn-authz/rbac/"]
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.1.1",
+        "MITRE:T1078"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
+      ]
     },
     {
       "id": "CSAF-K8S-POD-001",
@@ -29,9 +38,18 @@
       "check": "privileged_containers",
       "defaultSeverity": "CRITICAL",
       "expectedState": "No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Kubernetes:5.2.1", "MITRE:T1611"],
-      "references": ["https://kubernetes.io/docs/concepts/security/pod-security-standards/"]
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.1",
+        "MITRE:T1611"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+      ]
     },
     {
       "id": "CSAF-K8S-POD-002",
@@ -41,9 +59,18 @@
       "check": "host_network_pods",
       "defaultSeverity": "HIGH",
       "expectedState": "No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Kubernetes:5.2.4", "MITRE:T1611"],
-      "references": ["https://kubernetes.io/docs/concepts/security/pod-security-standards/"]
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.4",
+        "MITRE:T1611"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+      ]
     },
     {
       "id": "CSAF-K8S-NET-001",
@@ -53,9 +80,17 @@
       "check": "namespace_without_network_policy",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Kubernetes:5.3.2"],
-      "references": ["https://kubernetes.io/docs/concepts/services-networking/network-policies/"]
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.3.2"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/services-networking/network-policies/"
+      ]
     },
     {
       "id": "CSAF-K8S-OPS-001",
@@ -65,9 +100,78 @@
       "check": "attestation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "A documented, tested break-glass procedure exists for cluster-admin access.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["NIST-800-53:CP-2"],
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "NIST-800-53:CP-2"
+      ],
       "references": []
+    },
+    {
+      "id": "CSAF-K8S-OPS-002",
+      "title": "API server audit logging is enabled",
+      "category": "Operations",
+      "module": "attestation",
+      "check": "attestation",
+      "defaultSeverity": "HIGH",
+      "expectedState": "The kube-apiserver runs with --audit-log-path and an audit policy that records security-relevant events.",
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:3.2.1",
+        "MITRE:T1562.008"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-OPS-003",
+      "title": "Secrets are encrypted at rest",
+      "category": "Operations",
+      "module": "attestation",
+      "check": "attestation",
+      "defaultSeverity": "HIGH",
+      "expectedState": "An EncryptionConfiguration encrypts Secret resources at rest in etcd using an aescbc or KMS provider (not identity-only).",
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:3.1.1",
+        "MITRE:T1552.007"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-OPS-004",
+      "title": "Admission control enforces Pod Security Standards",
+      "category": "Operations",
+      "module": "attestation",
+      "check": "attestation",
+      "defaultSeverity": "HIGH",
+      "expectedState": "Pod Security Admission (or an equivalent controller such as OPA/Kyverno) enforces at least the 'baseline' standard on workload namespaces.",
+      "profiles": [
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.2",
+        "MITRE:T1610"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-admission/"
+      ]
     }
   ]
 }

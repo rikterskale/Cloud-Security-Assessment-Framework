@@ -1,5 +1,7 @@
 # CSAF Test Execution Report — GCP
 
+> **Historical snapshot — captured 2026-07-29. Not current runtime evidence.** Re-generate on release; for the latest verified run see the GitHub Actions CI logs and CHANGELOG.
+
 **Date:** 2026-07-29
 **Framework version:** 1.0.0 &nbsp;|&nbsp; **Schema version:** 3.0
 **Python:** 3.13.13

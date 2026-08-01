@@ -236,6 +236,17 @@ gating from `AssessmentModule.active_validation` — a `Validation`/
 `AdversarySimulation` check that a signed engagement did not approve returns
 `NotTested` (fail-closed) rather than running.
 
+### Concurrency model
+
+`--max-workers` parallelizes evaluation across **AWS regions**, which are
+independent partitions each given its own isolated cache. It is AWS-only by
+design. Azure, GCP, and Kubernetes assess a single subscription / project /
+cluster whose collection APIs already return resources across all locations in
+one pass, so there is no equivalent partition to parallelize; the only parallel
+unit would be modules, which share one memoization cache and one provider
+session whose SDK client is not guaranteed thread-safe. Those providers are
+therefore evaluated sequentially (a safe default) and ignore `--max-workers`.
+
 ## Authorization profiles
 
 | Profile | Read-only | Extra behaviour | Authorization |
@@ -399,14 +410,14 @@ and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 | KMS / Cloud SQL | CMEK rotation; Cloud SQL not open to world, TLS required |
 | Operations | Break-glass procedure (operator attestation) |
 
-### Kubernetes — 5 controls ([`control-catalog-k8s.json`](controls/control-catalog-k8s.json))
+### Kubernetes — 8 controls ([`control-catalog-k8s.json`](controls/control-catalog-k8s.json))
 
 | Category | Example controls |
 |---|---|
 | RBAC | No non-system subject bound to `cluster-admin` |
 | Pod Security | No privileged containers, no `hostNetwork` pods (outside kube-system/kube-public/kube-node-lease) |
 | Network | Every workload namespace has at least one NetworkPolicy |
-| Operations | Break-glass procedure (operator attestation) |
+| Operations | Break-glass procedure, API-server audit logging, secrets encrypted at rest, and Pod Security Admission enforcement (operator attestations) |
 
 Each catalog entry declares its `module` (implementation class), `check`
 (method name), `defaultSeverity`, `expectedState`, `profiles`, and framework
@@ -760,6 +771,12 @@ modules always win on a name collision (a plugin can't silently shadow a
 core control's implementation), and a plugin that fails to load only drops
 that one plugin, never the built-ins. See
 [`csaf/plugins.py`](csaf/plugins.py) and [`pyproject.toml`](pyproject.toml).
+
+**Trust model.** An installed plugin runs in-process with full trust, so
+installing one is an explicit trust decision. For locked-down environments, set
+`CSAF_PLUGIN_ALLOWLIST` to a comma-separated list of entry-point names that may
+load; any other plugin is skipped (fail closed). Unset loads every installed
+plugin (default); an empty value loads none.
 
 ### Authoring tools
 
