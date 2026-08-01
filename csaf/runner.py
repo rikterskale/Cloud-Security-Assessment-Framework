@@ -92,6 +92,7 @@ class RunConfig:
     self_check: bool = False
     export: list[str] = field(default_factory=list)
     attest_key_path: str | None = None
+    check_only: bool = False
 
 
 @dataclass
@@ -224,6 +225,17 @@ def run_assessment(config: RunConfig) -> RunResult:
             return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
         selected_ids = {c.id for c in controls}
         logger.info("catalog", f"Selected {len(controls)} controls for profile '{config.profile}'.")
+
+        if config.check_only:
+            # Preflight: profile, engagement, scope, and catalog selection are all
+            # valid. Stop before any cloud contact or report writing.
+            message = (
+                f"Preflight passed: profile '{config.profile}', scope, and {len(controls)} "
+                "selected controls are valid. No cloud calls or reports were made."
+            )
+            logger.info("runner", message)
+            logger.close()
+            return RunResult(EXIT_OK, str(out_dir), {}, {}, 0, True, message)
 
         evidence = EvidenceStore(out_dir)
 
@@ -366,6 +378,8 @@ def run_assessment(config: RunConfig) -> RunResult:
         return RunResult(exit_code, str(out_dir), coverage.to_dict(), risk, len(findings), all_executed, message)
 
     except Exception as exc:  # noqa: BLE001 - top-level guard produces a fatal exit
+        from .diagnostics import format_fatal
+
         logger.error("runner", f"Fatal error: {type(exc).__name__}: {exc}")
         logger.close()
-        return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Fatal: {exc}")
+        return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Fatal: {format_fatal(exc)}")

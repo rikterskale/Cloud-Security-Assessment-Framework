@@ -44,11 +44,48 @@ import sys
 from csaf import FRAMEWORK_VERSION
 from csaf.runner import RunConfig, run_assessment
 
+EXIT_CODE_MEANING = {
+    0: "all selected controls executed, no errors",
+    2: "completed, but some controls were NotTested or errored (e.g. a missing attestation)",
+    1: "fatal error (unauthorized profile/scope, bad input, or a failed prerequisite)",
+}
+
+_EXIT_CODE_HELP = "Exit codes:\n" + "".join(
+    f"  {code}  {meaning}\n" for code, meaning in sorted(EXIT_CODE_MEANING.items())
+)
+
+
+def exit_code_note(code: int) -> str:
+    """One-line explanation of a non-zero exit code (empty for success)."""
+    if code == 0:
+        return ""
+    return f"(exit {code}: {EXIT_CODE_MEANING.get(code, 'unknown')})"
+
+
+def format_run_summary(result) -> str:
+    """Human-readable severity/coverage summary for a completed run (empty if unavailable)."""
+    risk = result.risk or {}
+    coverage = result.coverage or {}
+    counts = risk.get("severity_counts")
+    if not counts:
+        return ""
+    return "\n".join(
+        [
+            f"Risk: {risk.get('normalised_score', '?')}/100 ({risk.get('rating', '?')})",
+            "Findings by severity: "
+            f"CRITICAL {counts.get('CRITICAL', 0)}, HIGH {counts.get('HIGH', 0)}, "
+            f"MEDIUM {counts.get('MEDIUM', 0)}, LOW {counts.get('LOW', 0)}",
+            f"Coverage: {coverage.get('Executed', '?')}/{coverage.get('SelectedControls', '?')} executed, "
+            f"{coverage.get('NotTested', 0)} not tested, {coverage.get('Error', 0)} errored",
+        ]
+    )
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read-only multi-cloud security posture assessment (CSAF).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_EXIT_CODE_HELP,
     )
     parser.add_argument(
         "--cloud",
@@ -133,6 +170,19 @@ def build_parser() -> argparse.ArgumentParser:
         "(verify later with csaf-attest verify).",
     )
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARN", "ERROR"])
+    parser.add_argument(
+        "--explain",
+        metavar="CONTROL_ID",
+        default=None,
+        help="Print a control's intent, expected state, mappings, and remediation, then exit (offline; "
+        "uses --cloud to pick the catalog).",
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Preflight: validate the profile, engagement, scope, and catalog selection, then exit "
+        "without contacting the cloud or writing reports (exit 0 if a run would be authorized, 1 otherwise).",
+    )
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")
     return parser
@@ -140,6 +190,17 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.explain:
+        from csaf.explain import explain_control
+
+        text = explain_control(args.cloud, args.explain)
+        if text is None:
+            print(f"Control {args.explain!r} was not found in the {args.cloud} catalog.")
+            return 1
+        print(text)
+        return 0
+
     config = RunConfig(
         profile=args.profile,
         cloud=args.cloud,
@@ -160,11 +221,17 @@ def main(argv: list[str] | None = None) -> int:
         self_check=args.self_check,
         export=args.export,
         attest_key_path=args.attest_key_file,
+        check_only=args.check_only,
     )
     result = run_assessment(config)
-    print(
-        f"\n[{'OK' if result.exit_code == 0 else 'INCOMPLETE' if result.exit_code == 2 else 'FATAL'}] {result.message}"
-    )
+    status = "OK" if result.exit_code == 0 else "INCOMPLETE" if result.exit_code == 2 else "FATAL"
+    print(f"\n[{status}] {result.message}")
+    note = exit_code_note(result.exit_code)
+    if note:
+        print(f"    {note}")
+    summary = format_run_summary(result)
+    if summary and args.log_level != "ERROR":
+        print(summary)
     print(f"[*] Output written to {result.output_dir}")
     return result.exit_code
 

@@ -1,2 +1,22 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalize all text files to LF in the repository and the working tree.
+* text=auto eol=lf
+
+# Be explicit for the file types CSAF ships and/or tests byte-for-byte, so a
+# Windows checkout (core.autocrlf=true) cannot introduce CRLF drift that breaks
+# tests/test_resources.py or `ruff format --check`. See review finding REV-DX-002.
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.txt   text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.sh    text eol=lf
+*.key   text eol=lf
+
+# Binary assets: never normalize line endings.
+*.png binary
+*.whl binary
+*.tar.gz binary

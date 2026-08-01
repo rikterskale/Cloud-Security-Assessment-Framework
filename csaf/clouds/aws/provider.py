@@ -98,6 +98,13 @@ class AwsProvider:
     def _evaluate_region(self, region: str, regional_groups: dict[str, list[Control]]) -> list:
         region_results = []
         cache: dict = {}
+        control_total = sum(len(controls) for controls in regional_groups.values())
+        # Coarse per-region heartbeat so a long multi-region run shows progress
+        # without needing DEBUG-level per-control lines.
+        self.logger.info(
+            "progress",
+            f"AWS region {region}: evaluating {control_total} control(s) across {len(regional_groups)} module(s).",
+        )
         for module_name, module_controls in regional_groups.items():
             module = self._module_instances[module_name]
             ctx = self._context(region, cache)

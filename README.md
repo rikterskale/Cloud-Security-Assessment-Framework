@@ -65,6 +65,14 @@ pinned by unit tests (see [Testing](#testing)):
 > **New to the terminal, Git, or Python?** Follow the step-by-step novice guide for your platform instead of this Quick start:
 > [Windows novice guide](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux novice guide](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md). They assume no prior experience and start with the safe offline demo.
 
+**Your first successful run takes one command and needs no cloud account, credentials, or internet** — it uses synthetic data to prove the tool works end to end and writes a full set of reports:
+
+```bash
+python3 invoke_assessment.py --self-check --output-dir out
+```
+
+Expect `[INCOMPLETE] Completed. ... Coverage 29/30 executed.` and exit code `2` — that is success for the demo (one control is intentionally left untested). Once that works, continue below to install properly and assess a real environment.
+
 ### 1. Install
 
 Install from a source checkout or a built wheel. Default catalogs, baselines,
@@ -202,7 +210,9 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--export` | none | Additionally write findings in interoperability formats (`sarif`, `oscal`); space-separated. Additive — never replaces `findings.json`/`findings.csv` |
 | `--attest-key-file` | none | Shared-secret key; writes `attestation.json` signing the run manifest (verify later with `csaf-attest verify <run-dir> --key-file ...`) |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
+| `--check-only` | off | Preflight — validate profile, engagement, scope, and catalog selection, then exit without contacting the cloud or writing reports |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
+| `--explain` | none | Print a control's intent, expected state, mappings, and remediation (offline), then exit |
 | `--help` | off | Show the CLI help and exit |
 
 ### Companion commands

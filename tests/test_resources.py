@@ -13,6 +13,16 @@ from csaf.runner import RunConfig, run_assessment
 REPO = Path(__file__).resolve().parent.parent
 
 
+def _normalize_eol(data: bytes) -> bytes:
+    """Collapse CRLF/CR to LF so the comparison is line-ending independent.
+
+    The packaged resources must mirror the source resources by *content*; a
+    Windows checkout (core.autocrlf) can legitimately present one copy with CRLF
+    and the other with LF without any real drift (see review finding REV-DX-002).
+    """
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 @contextmanager
 def temporary_cwd(path: Path):
     original = Path.cwd()
@@ -37,7 +47,11 @@ class TestPackagedResources(unittest.TestCase):
                 self.assertEqual(packaged_names, [item.name for item in source_files])
                 for source in source_files:
                     packaged = package_root.joinpath(category, source.name)
-                    self.assertEqual(packaged.read_bytes(), source.read_bytes(), source.name)
+                    self.assertEqual(
+                        _normalize_eol(packaged.read_bytes()),
+                        _normalize_eol(source.read_bytes()),
+                        source.name,
+                    )
 
     def test_default_resource_resolution_is_independent_of_current_directory(self):
         with tempfile.TemporaryDirectory() as tmp, temporary_cwd(Path(tmp)):
