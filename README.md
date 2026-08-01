@@ -24,6 +24,7 @@ catalog and CIS-aligned baseline.
 
 ## Table of contents
 
+- [Novice Usability Guide](docs/NOVICE_USABILITY_GUIDE.md) — start here if you are new
 - [Design invariants](#design-invariants)
 - [Quick start](#quick-start)
 - [Authorization profiles](#authorization-profiles)
@@ -62,8 +63,8 @@ pinned by unit tests (see [Testing](#testing)):
 
 ## Quick start
 
-> **New to the terminal, Git, or Python?** Follow the step-by-step novice guide for your platform instead of this Quick start:
-> [Windows novice guide](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux novice guide](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md). They assume no prior experience and start with the safe offline demo.
+> **New to the terminal, Git, or Python? Start here → [Novice Usability Guide](docs/NOVICE_USABILITY_GUIDE.md).**
+> It walks you from an unprepared computer to a verified first result, with troubleshooting, cleanup, and uninstall steps. For OS-specific terminal detail, see the platform guides: [Windows](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md). All assume no prior experience and start with the safe offline demo.
 
 **Your first successful run takes one command and needs no cloud account, credentials, or internet** — it uses synthetic data to prove the tool works end to end and writes a full set of reports:
 
