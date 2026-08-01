@@ -139,6 +139,54 @@ class AssessmentModule:
             **self._base_kwargs(control, ctx),
         )
 
+    # --- Active (non-destructive) validation --------------------------------
+
+    ACTIVE_PROFILES = ("Validation", "AdversarySimulation")
+
+    def active_validation(self, control: "Control", ctx: CheckContext, evaluate) -> ControlResult:
+        """Run an engagement-gated, non-destructive active validation check.
+
+        Active validation (e.g. ``iam:SimulatePrincipalPolicy`` — a read-only
+        API that reports *whether* a principal could perform an action, without
+        performing it) is only meaningful under the ``Validation``/
+        ``AdversarySimulation`` profiles and only when the engagement explicitly
+        approved active validation. This helper enforces both, fail-closed, so a
+        new active check just supplies ``evaluate(control, ctx) -> ControlResult``
+        with the read-only logic and inherits the gating:
+
+        * Non-active profile → ``NotApplicable`` (nothing was attempted).
+        * Active profile but engagement did not approve → ``NotTested``.
+        * Otherwise → the check's own result (errors become ``Error``).
+
+        This is defense-in-depth: the runner already refuses to start an active
+        profile without a signed, approving, in-window engagement; this second
+        check keeps the guarantee local to every active check as well.
+        """
+        if ctx.profile not in self.ACTIVE_PROFILES:
+            return self.result(
+                control,
+                ctx,
+                status="NotApplicable",
+                observed=(
+                    "Active validation runs only under the Validation or AdversarySimulation "
+                    f"profiles; current profile is {ctx.profile}."
+                ),
+                confidence="LOW",
+            )
+        if not getattr(ctx.engagement, "active_validation_approved", False):
+            return self.result(
+                control,
+                ctx,
+                status="NotTested",
+                observed="Active validation is not approved by the engagement; skipped (fail-closed).",
+                confidence="LOW",
+            )
+        try:
+            return evaluate(control, ctx)
+        except Exception as exc:  # noqa: BLE001 - active-check errors become Error, never a pass
+            ctx.logger.error(self.name, f"{control.id} active validation raised {type(exc).__name__}: {exc}")
+            return self.error(control, ctx, f"active validation error: {type(exc).__name__}: {exc}")
+
     def error(self, control: "Control", ctx: CheckContext, reason: str) -> ControlResult:
         kwargs = self._base_kwargs(control, ctx)
         return ControlResult(

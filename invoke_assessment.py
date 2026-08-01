@@ -118,6 +118,20 @@ def build_parser() -> argparse.ArgumentParser:
         default="csaf-output",
         help="Parent directory; each assessment is written to a unique run subdirectory.",
     )
+    parser.add_argument(
+        "--export",
+        nargs="+",
+        default=[],
+        choices=["sarif", "oscal"],
+        help="Additionally write findings in interoperability formats (SARIF 2.1.0 and/or an OSCAL "
+        "assessment-results subset). Additive; does not replace findings.json/csv.",
+    )
+    parser.add_argument(
+        "--attest-key-file",
+        default=None,
+        help="Path to a shared-secret key; when given, write attestation.json signing the run manifest "
+        "(verify later with csaf-attest verify).",
+    )
     parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARN", "ERROR"])
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")
@@ -144,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         max_workers=args.max_workers,
         log_level=args.log_level,
         self_check=args.self_check,
+        export=args.export,
+        attest_key_path=args.attest_key_file,
     )
     result = run_assessment(config)
     print(

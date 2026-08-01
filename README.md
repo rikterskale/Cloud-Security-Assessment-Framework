@@ -62,6 +62,9 @@ pinned by unit tests (see [Testing](#testing)):
 
 ## Quick start
 
+> **New to the terminal, Git, or Python?** Follow the step-by-step novice guide for your platform instead of this Quick start:
+> [Windows novice guide](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux novice guide](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md). They assume no prior experience and start with the safe offline demo.
+
 ### 1. Install
 
 Install from a source checkout or a built wheel. Default catalogs, baselines,
@@ -196,9 +199,32 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--kubeconfig` | standard kubeconfig locations / `KUBECONFIG` | Path to a kubeconfig file |
 | `--max-workers` | `1` | AWS only: evaluate this many regions concurrently (sequential by default) |
 | `--output-dir` | `csaf-output` | Parent directory; each assessment gets a unique run subdirectory |
+| `--export` | none | Additionally write findings in interoperability formats (`sarif`, `oscal`); space-separated. Additive — never replaces `findings.json`/`findings.csv` |
+| `--attest-key-file` | none | Shared-secret key; writes `attestation.json` signing the run manifest (verify later with `csaf-attest verify <run-dir> --key-file ...`) |
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
 | `--help` | off | Show the CLI help and exit |
+
+### Companion commands
+
+Besides `csaf-assess` and `csaf-sign-engagement`, the package installs focused,
+read-only helper commands (all offline, none perform cloud calls):
+
+| Command | Purpose |
+|---|---|
+| `csaf-campaign` | Create/sign/verify/run a signed, replayable assessment **campaign** (reproducible runs) |
+| `csaf-attest` | Sign (`sign`) and verify (`verify`) an **attested evidence bundle** over a run's manifest |
+| `csaf-drift` | Compare two runs' `findings.json` and alert on **new/resolved** findings (exit non-zero to gate cron/CI) |
+| `csaf-aggregate` | Roll several run directories into one **org-wide** report with cross-scope control failures |
+| `csaf-detection-pack` | Build a **purple-team** detection-coverage pack (benign, defender-focused validation markers) |
+| `csaf-attack-path` | Read-only IAM **privilege-escalation path** analysis over a provided IAM snapshot |
+| `csaf-lint-catalog` | Validate a control catalog (schema + module/check resolution) |
+| `csaf-new-module` | Print a new assessment-module scaffold + catalog stub |
+
+Active (non-destructive) validation checks additionally inherit engagement
+gating from `AssessmentModule.active_validation` — a `Validation`/
+`AdversarySimulation` check that a signed engagement did not approve returns
+`NotTested` (fail-closed) rather than running.
 
 ## Authorization profiles
 
@@ -724,6 +750,21 @@ modules always win on a name collision (a plugin can't silently shadow a
 core control's implementation), and a plugin that fails to load only drops
 that one plugin, never the built-ins. See
 [`csaf/plugins.py`](csaf/plugins.py) and [`pyproject.toml`](pyproject.toml).
+
+### Authoring tools
+
+Two console scripts help you write correct catalogs and modules:
+
+- `csaf-lint-catalog path/to/control-catalog.json` — validates a catalog
+  against the packaged JSON Schema and runs semantic checks the schema can't
+  express, most importantly that every control's `module`/`check` pair resolves
+  to a real check method in the (built-in or plugin) registry for its cloud.
+  Exits non-zero on errors; add `--strict` to fail on warnings too.
+- `csaf-new-module --cloud aws --module eventbridge` — prints a ready-to-edit
+  `AssessmentModule` scaffold plus a matching catalog-entry stub and the one
+  registry line needed to wire it in.
+
+Both are offline and read-only. See [`csaf/authoring.py`](csaf/authoring.py).
 
 ## Authorized use
 

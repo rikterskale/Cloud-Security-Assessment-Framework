@@ -90,6 +90,8 @@ class RunConfig:
     max_workers: int = 1
     log_level: str = "INFO"
     self_check: bool = False
+    export: list[str] = field(default_factory=list)
+    attest_key_path: str | None = None
 
 
 @dataclass
@@ -320,6 +322,18 @@ def run_assessment(config: RunConfig) -> RunResult:
             findings, coverage, risk, compliance, context, out_dir, delta=delta, detection_coverage=detection_coverage
         )
 
+        # Optional interoperability exports (additive; never replace findings.json).
+        if config.export:
+            from .export_formats import EXPORTERS
+
+            for fmt in config.export:
+                writer = EXPORTERS.get(fmt)
+                if writer is None:
+                    logger.warn("export", f"Unknown export format '{fmt}'; skipping.")
+                    continue
+                path = writer(findings, context, out_dir)
+                logger.info("export", f"Wrote {fmt} export: {path.name}")
+
         # Report any selected control that did not complete.
         for control_id in not_tested_ids:
             logger.warn("coverage", f"SELECTED CHECK NOT COMPLETED: {control_id}")
@@ -339,6 +353,15 @@ def run_assessment(config: RunConfig) -> RunResult:
         # The logger is flushed after every record. Write the manifest only
         # after the final log event so its hashes describe the completed run.
         write_manifest(out_dir, cloud_label, account_id, config.profile, source_revision=revision)
+        # Optional attested evidence bundle: sign the manifest after it is
+        # final. Created after the manifest and thus intentionally outside it.
+        if config.attest_key_path:
+            from .attestation import write_attestation
+
+            with open(config.attest_key_path, "rb") as handle:
+                attest_key = handle.read().strip()
+            if attest_key:
+                write_attestation(out_dir, attest_key)
         logger.close()
         return RunResult(exit_code, str(out_dir), coverage.to_dict(), risk, len(findings), all_executed, message)
 

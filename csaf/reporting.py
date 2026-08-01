@@ -211,6 +211,51 @@ def write_executive_html(
     rows = finding_rows(ordered[:50])
     findings_heading = "Top Findings" if len(ordered) > 50 else "Findings"
 
+    # Client-side filter/pivot toolbar (OFF-FEAT-010). Operates only on rows
+    # already rendered in the page; performs no network calls. The script is
+    # static (contains no untrusted data), so escaping guarantees are unchanged.
+    filters_toolbar = (
+        '<div class="filters">'
+        '<input id="csaf-q" type="search" placeholder="Filter findings by any text…" aria-label="Filter findings">'
+        '<span class="sevbtns">'
+        '<button type="button" data-sev="all" class="active">All</button>'
+        '<button type="button" data-sev="critical">Critical</button>'
+        '<button type="button" data-sev="high">High</button>'
+        '<button type="button" data-sev="medium">Medium</button>'
+        '<button type="button" data-sev="low">Low</button>'
+        '</span><span id="csaf-count" class="count"></span></div>'
+    )
+    interactive_script = """<script>
+(function(){
+  var q=document.getElementById('csaf-q');
+  var count=document.getElementById('csaf-count');
+  var btns=document.querySelectorAll('.sevbtns button');
+  var sev='all';
+  function apply(){
+    var term=(q&&q.value||'').toLowerCase();
+    var shown=0,total=0;
+    document.querySelectorAll('table.findings-table tbody tr').forEach(function(tr){
+      if(!tr.className){return;}
+      total++;
+      var okSev=(sev==='all')||tr.classList.contains(sev);
+      var okTerm=(!term)||tr.textContent.toLowerCase().indexOf(term)>=0;
+      var show=okSev&&okTerm;
+      tr.style.display=show?'':'none';
+      if(show){shown++;}
+    });
+    if(count){count.textContent=shown+' of '+total+' shown';}
+  }
+  if(q){q.addEventListener('input',apply);}
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    sev=b.getAttribute('data-sev');
+    btns.forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');
+    apply();
+  });});
+  apply();
+})();
+</script>"""
+
     all_findings_section = ""
     if len(ordered) > 50:
         all_findings_section = f"""<details class="all-findings">
@@ -260,6 +305,14 @@ td{{padding:.55rem 1rem;border-top:1px solid #334155;font-size:.85rem}}
 tr.critical td:first-child{{color:#ef4444;font-weight:700}}
 tr.high td:first-child{{color:#f97316;font-weight:700}}
 tr.medium td:first-child{{color:#eab308}}tr.low td:first-child{{color:#22c55e}}
+.filters{{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.4rem 0 1rem}}
+.filters input{{flex:1;min-width:200px;background:#1e293b;border:1px solid #334155;color:#e2e8f0;
+  padding:.5rem .8rem;border-radius:8px;font-size:.85rem}}
+.filters .sevbtns{{display:flex;gap:.3rem;flex-wrap:wrap}}
+.filters button{{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:.45rem .8rem;
+  border-radius:8px;font-size:.8rem;cursor:pointer}}
+.filters button.active{{background:#334155;color:#e2e8f0}}
+.filters .count{{color:#94a3b8;font-size:.8rem;margin-left:auto}}
 details.all-findings{{margin-bottom:1rem}}
 details.all-findings summary{{cursor:pointer;padding:.6rem 1rem;background:#1e293b;border-radius:8px;
   font-size:.85rem;color:#94a3b8;margin-bottom:.6rem}}
@@ -290,9 +343,11 @@ details.all-findings table{{margin-bottom:0}}
 <table><thead><tr><th>Framework</th><th>Passed / Evaluated</th><th>Pass Rate</th></tr></thead>
 <tbody>{comp_rows or "<tr><td colspan=3>No mapped controls evaluated.</td></tr>"}</tbody></table>
 <h2>{findings_heading}</h2>
-<table><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
+{filters_toolbar}
+<table class="findings-table"><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
 <tbody>{rows or "<tr><td colspan=5>No findings.</td></tr>"}</tbody></table>
 {all_findings_section}
+{interactive_script}
 </body></html>"""
     with atomic_text_writer(out_dir / "executive-summary.html") as handle:
         handle.write(doc)

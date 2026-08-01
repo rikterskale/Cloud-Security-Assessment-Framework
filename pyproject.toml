@@ -38,6 +38,14 @@ ci = [
 [project.scripts]
 csaf-assess = "invoke_assessment:main"
 csaf-sign-engagement = "sign_engagement:main"
+csaf-lint-catalog = "csaf.authoring:lint_main"
+csaf-new-module = "csaf.authoring:scaffold_main"
+csaf-attest = "csaf.attestation:main"
+csaf-campaign = "csaf.campaign:main"
+csaf-drift = "csaf.monitor:main"
+csaf-aggregate = "csaf.aggregate:main"
+csaf-detection-pack = "csaf.detection_pack:main"
+csaf-attack-path = "csaf.attack_path:main"
 
 # Third-party distributions contribute additional AWS/Azure/GCP/K8s check
 # modules by declaring entries in the matching group below, e.g.:
