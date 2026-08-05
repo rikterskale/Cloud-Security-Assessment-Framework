@@ -739,7 +739,9 @@ python3 -m coverage report --show-missing
 permissions and these gates:
 
 - Ruff lint and format checks
+- GitHub Actions syntax/expression validation, shell syntax checks, and whitespace validation
 - `pip-audit` dependency vulnerability audit
+- Pull-request dependency review (vulnerabilities and restricted licenses)
 - CycloneDX SBOM generation (`pip-audit --format cyclonedx-json`), uploaded as
   a build artifact
 - Python 3.10 / 3.11 / 3.12 / 3.13 / 3.14 unit-test matrix
@@ -748,6 +750,11 @@ permissions and these gates:
 - Hash-locked dependency installation
 - Source/wheel build, metadata verification, and an installed-wheel smoke test
   executed outside the repository
+- Generated CLI reference and shell-completion drift checks, plus strict catalog/module validation
+
+`.github/workflows/codeql.yml` scans Python on pushes and pull requests, and
+runs a weekly `security-and-quality` scan so newly published detections are
+also applied to the default branch.
 
 `.github/workflows/release.yml` runs for `v*` tags. It builds the wheel and
 source distribution with the commit revision embedded, verifies them, produces

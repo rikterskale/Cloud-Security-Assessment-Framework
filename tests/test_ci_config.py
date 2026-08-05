@@ -6,6 +6,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 CI = REPO / ".github" / "workflows" / "ci.yml"
 RELEASE = REPO / ".github" / "workflows" / "release.yml"
+CODEQL = REPO / ".github" / "workflows" / "codeql.yml"
 
 
 class TestCIConfig(unittest.TestCase):
@@ -35,6 +36,11 @@ class TestCIConfig(unittest.TestCase):
             "installed-package smoke tests",
             "wheel-venv/bin/python -m pip check",
             "sdist-venv/bin/python -m pip check",
+            "actionlint",
+            "shellcheck",
+            "generate_completions.py",
+            "csaf-lint-catalog",
+            "dependency-review-action",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 
@@ -58,6 +64,17 @@ class TestCIConfig(unittest.TestCase):
             "gh release create",
         ]:
             self.assertIn(token, text)
+
+    def test_codeql_scans_pushes_pull_requests_and_the_default_branch_weekly(self):
+        text = CODEQL.read_text(encoding="utf-8")
+        for token in [
+            "github/codeql-action/init@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e",
+            "github/codeql-action/analyze@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e",
+            "security-and-quality",
+            "security-events: write",
+            "cron:",
+        ]:
+            self.assertIn(token, text, f"CodeQL is missing required configuration: {token}")
 
 
 if __name__ == "__main__":

@@ -27,18 +27,40 @@ jobs:
       - run: python -m pip install --require-hashes -r requirements-lock.txt
       - name: Validate workflow YAML
         run: python -c "from pathlib import Path; import yaml; [yaml.safe_load(path.read_text(encoding='utf-8')) for path in Path('.github/workflows').glob('*.yml')]"
+      - name: Validate GitHub Actions syntax and security-sensitive expressions
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 -color
+      - name: Check shell script syntax
+        run: |
+          bash -n scripts/quickstart.sh
+          shellcheck scripts/quickstart.sh
+      - name: Reject whitespace errors
+        run: git diff --check
       - name: Compile Python sources
-        run: python -m compileall -q csaf invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        run: python -m compileall -q csaf tools invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
       - name: Verify installed dependencies
         run: python -m pip check
       - name: Ruff lint
-        run: ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        run: ruff check csaf tests tools invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
       - name: Ruff format check
-        run: ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        run: ruff format --check csaf tests tools invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
       - name: Verify generated CLI reference
         run: |
           python tools/generate_cli_reference.py
           git diff --exit-code -- docs/CLI_REFERENCE.md
+      - name: Verify generated shell completions
+        run: |
+          python tools/generate_completions.py bash > completions/csaf-assess.bash
+          python tools/generate_completions.py zsh > completions/_csaf-assess
+          python tools/generate_completions.py powershell > completions/csaf-assess.ps1
+          git diff --exit-code -- completions/
+      - name: Validate shipped control catalogs against their real module registries
+        run: |
+          csaf-lint-catalog \
+            csaf/resources/controls/control-catalog.json \
+            csaf/resources/controls/control-catalog-azure.json \
+            csaf/resources/controls/control-catalog-gcp.json \
+            csaf/resources/controls/control-catalog-k8s.json \
+            --strict
 
   audit:
     name: Dependency vulnerability audit
@@ -147,6 +169,9 @@ jobs:
           CSAF_SOURCE_REVISION: ${{ github.sha }}
         run: python -m build --no-isolation
       - run: python -m twine check dist/*
+      - name: Confirm distributions contain only intended package resources
+        run: |
+          python -c "import tarfile; archive=next(__import__('pathlib').Path('dist').glob('*.tar.gz')); names=tarfile.open(archive).getnames(); assert any(name.endswith('csaf/resources/controls/control-catalog.json') for name in names); assert any(name.endswith('csaf/resources/schemas/control-catalog.schema.json') for name in names)"
       - name: Install wheel without repository-relative files
         run: |
           python -m venv wheel-venv
@@ -227,10 +252,30 @@ jobs:
       - name: Validate canonical novice guides (fail closed)
         run: python tests/validate_novice_guides.py
 
+  dependency-review:
+    name: Review dependency changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Block vulnerable or unacceptable dependency changes
+        uses: actions/dependency-review-action@24c7eb380a2dc368f2d129e4c65e51d172983a1e # v4
+        with:
+          fail-on-severity: moderate
+          deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-1.0-only, AGPL-3.0-only
+
   ci-success:
     name: CI success
-    needs: [lint, audit, sbom, test, test-cross-os, package, novice-guides]
+    if: ${{ always() }}
+    needs: [lint, audit, sbom, test, test-cross-os, package, novice-guides, dependency-review]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - run: echo "All required gates passed."
+      - name: Enforce every required gate
+        env:
+          NEEDS_RESULT: ${{ toJSON(needs) }}
+        run: |
+          python -c "import json, os; failed={name: job['result'] for name, job in json.loads(os.environ['NEEDS_RESULT']).items() if job['result'] not in ('success', 'skipped')}; assert not failed, failed"
