@@ -1,11 +1,15 @@
 # Container support and certification
 
-CSAF has two supported production container targets:
+CSAF defines two production container image targets. The Linux image is
+certified by the repository's Linux-container workflow. The Windows image has
+a matching build and certification workflow, but that certification requires a
+Windows-container-capable self-hosted runner and is not performed by the hosted
+Linux runner.
 
 | Target | Dockerfile | Runtime | Supported capabilities |
 | --- | --- | --- | --- |
 | Linux (`linux/amd64`, `linux/arm64` when built for that architecture) | `Dockerfile` | Linux Docker daemon | AWS, Azure, GCP, Kubernetes, all CSAF console commands, offline self-check, reports, plugins |
-| Windows Server 2022 (`windows/amd64`) | `Dockerfile.windows` | Windows Server 2022-compatible Docker daemon | The same CSAF capabilities and provider SDKs |
+| Windows Server 2022 (`windows/amd64`) | `Dockerfile.windows` | Windows Server 2022-compatible Docker daemon | Matching intended CSAF capabilities and provider SDKs; certification requires the self-hosted runner described below |
 
 The images install the repository's hash-locked `requirements-lock.txt`, which
 contains the core runtime and every optional cloud-provider SDK. They install
@@ -25,14 +29,14 @@ images; OS-specific host operations remain native to their respective image.
 
 ## Run a certified offline check
 
-Linux / PowerShell:
+Linux host (Bash or a Linux PowerShell installation with `id` available):
 
-```powershell
+```bash
 docker build -t csaf:local .
-New-Item -ItemType Directory -Force out | Out-Null
-foreach ($cloud in 'aws', 'azure', 'gcp', 'k8s') {
+mkdir -p out
+for cloud in aws azure gcp k8s; do
   docker run --rm --read-only --cap-drop ALL --tmpfs /tmp --user "$(id -u):$(id -g)" -v "${PWD}/out:/work/out" csaf:local --self-check --cloud $cloud --output-dir /work/out
-}
+done
 ```
 
 On a Linux host, `--user` aligns the container process with the host directory

@@ -4,8 +4,8 @@ guide_schema_version: 1
 platform: windows
 canonical_path: docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md
 project_name: Cloud Security Assessment Framework (CSAF)
-target_release: "latest locally verifiable version: 1.0.0 (untagged, commit a5771ab)"
-target_commit: a5771ab3a31dd660a6d0da3dd6bbc97ce63050a9
+target_release: "latest locally reviewed version: 1.0.0 (untagged, commit 2732fc7)"
+target_commit: 2732fc72c6e4a1d3ab6e1a17fb1ce28fc9560936
 support_status: native_supported
 alternative_support_paths: []
 validation_status: statically_verified_only

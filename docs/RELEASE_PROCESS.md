@@ -9,4 +9,7 @@
 4. The tag-triggered Release workflow builds wheel/sdist artifacts, checksums, a CycloneDX SBOM, GitHub provenance/SBOM attestations, and a GitHub Release.
 5. Verify release artifacts with `gh attestation verify` and record any deprecation notices in the next release notes.
 
-Container publication is deliberately a separate, explicitly reviewed release job. It publishes only immutable version and digest references; never `latest` as the sole deployment reference.
+Container publication is not automated by the workflows currently in this
+repository. If a separately reviewed publication job is introduced, it must
+publish immutable version and digest references and must not use `latest` as
+the sole deployment reference.
