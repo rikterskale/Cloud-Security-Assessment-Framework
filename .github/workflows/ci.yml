@@ -35,6 +35,10 @@ jobs:
         run: ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
       - name: Ruff format check
         run: ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+      - name: Verify generated CLI reference
+        run: |
+          python tools/generate_cli_reference.py
+          git diff --exit-code -- docs/CLI_REFERENCE.md
 
   audit:
     name: Dependency vulnerability audit

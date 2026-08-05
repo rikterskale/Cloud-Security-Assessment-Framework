@@ -33,6 +33,7 @@ class Coverage:
 
     def to_dict(self) -> dict:
         return {
+            "CoverageSchemaVersion": "1.0",
             "SelectedControls": self.selected,
             "Executed": self.executed,
             "ExecutedRatio": self.executed_ratio,

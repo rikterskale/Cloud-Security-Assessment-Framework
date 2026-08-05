@@ -30,6 +30,15 @@ _CREDENTIAL_MARKERS = (
     "Unauthorized",
 )
 
+ERROR_CODES = {
+    "dependency": "CSAF-E001",
+    "credentials": "CSAF-E002",
+    "file": "CSAF-E003",
+    "permission": "CSAF-E004",
+    "authorization": "CSAF-E005",
+    "unknown": "CSAF-E999",
+}
+
 
 def explain_exception(exc: BaseException) -> tuple[str, str]:
     """Return ``(summary, hint)`` for an exception.
@@ -47,18 +56,18 @@ def explain_exception(exc: BaseException) -> tuple[str, str]:
         extra = next((e for mod, e in _PROVIDER_EXTRAS.items() if missing == mod or top == mod.split(".")[0]), None)
         if extra:
             return (
-                f"A dependency for the selected cloud is not installed ({missing}).",
+                f"[{ERROR_CODES['dependency']}] A dependency for the selected cloud is not installed ({missing}).",
                 f"Install the provider extra, e.g.  pip install 'csaf[{extra}]'  "
                 "(or install the locked dependencies: pip install --require-hashes -r requirements-lock.txt).",
             )
         return (
-            f"A required dependency is not installed ({missing or 'unknown module'}).",
+            f"[{ERROR_CODES['dependency']}] A required dependency is not installed ({missing or 'unknown module'}).",
             "Install CSAF's dependencies:  pip install --require-hashes -r requirements-lock.txt",
         )
 
     if any(marker in name for marker in _CREDENTIAL_MARKERS) or "credential" in message.lower():
         return (
-            "The cloud provider could not authenticate with read-only credentials.",
+            f"[{ERROR_CODES['credentials']}] The cloud provider could not authenticate with read-only credentials.",
             "Configure read-only credentials first (e.g. an AWS profile with ReadOnlyAccess/SecurityAudit, "
             "Azure DefaultAzureCredential, GCP Application Default Credentials, or a kubeconfig), then retry. "
             "Tip: run with --self-check to confirm the tool works with no cloud at all.",
@@ -67,13 +76,13 @@ def explain_exception(exc: BaseException) -> tuple[str, str]:
     if isinstance(exc, FileNotFoundError):
         target = getattr(exc, "filename", None) or message
         return (
-            f"A file the assessment needs was not found ({target}).",
+            f"[{ERROR_CODES['file']}] A file the assessment needs was not found ({target}).",
             "Check the path you passed to --catalog / --baseline / --engagement / --engagement-key-file.",
         )
 
     if isinstance(exc, PermissionError):
         return (
-            "CSAF could not write to the output directory.",
+            f"[{ERROR_CODES['permission']}] CSAF could not write to the output directory.",
             "Choose a writable location with --output-dir, or fix the directory's permissions.",
         )
 
@@ -81,13 +90,13 @@ def explain_exception(exc: BaseException) -> tuple[str, str]:
         # Preserve the specific engagement error (it is already operator-readable)
         # and add guidance.
         return (
-            message or "The engagement authorization could not be validated.",
+            f"[{ERROR_CODES['authorization']}] {message or 'The engagement authorization could not be validated.'}",
             "Verify the engagement file and its signing key. Active profiles (Validation/AdversarySimulation) "
             "require a signed engagement; re-sign with csaf-sign-engagement if it was edited.",
         )
 
     return (
-        f"{name}: {message}",
+        f"[{ERROR_CODES['unknown']}] {name}: {message}",
         "Re-run with --log-level DEBUG for the full traceback, or start with --self-check to verify the install.",
     )
 

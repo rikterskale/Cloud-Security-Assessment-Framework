@@ -97,7 +97,10 @@ def write_findings(findings: list[Finding], out_dir: Path, delta=None) -> None:
 
 
 def write_coverage(coverage: Coverage, not_tested_ids: list[str], out_dir: Path) -> None:
-    payload = coverage.to_dict()
+    payload = {
+        "CoverageSchemaVersion": "1.0",
+        **coverage.to_dict(),
+    }
     payload["NotTestedControls"] = sorted(not_tested_ids)
     with atomic_text_writer(out_dir / "coverage-report.json") as handle:
         json.dump(payload, handle, indent=2)
@@ -105,7 +108,7 @@ def write_coverage(coverage: Coverage, not_tested_ids: list[str], out_dir: Path)
     with atomic_text_writer(out_dir / "coverage-report.csv", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["Metric", "Value"])
-        for key, value in coverage.to_dict().items():
+        for key, value in payload.items():
             writer.writerow([key, value])
 
 
@@ -317,6 +320,14 @@ details.all-findings{{margin-bottom:1rem}}
 details.all-findings summary{{cursor:pointer;padding:.6rem 1rem;background:#1e293b;border-radius:8px;
   font-size:.85rem;color:#94a3b8;margin-bottom:.6rem}}
 details.all-findings table{{margin-bottom:0}}
+button:focus-visible,input:focus-visible,summary:focus-visible{{outline:3px solid #38bdf8;outline-offset:2px}}
+caption{{text-align:left;padding:.7rem 1rem;color:#cbd5e1;font-weight:600}}
+@media (prefers-color-scheme: light){{
+  body{{background:#f8fafc;color:#0f172a}}
+  .card,table,.filters input,.filters button,details.all-findings summary{{background:#ffffff;color:#0f172a}}
+  th{{background:#e2e8f0}} td{{border-top-color:#cbd5e1}}
+  .sub,.card .label,.filters .count,details.all-findings summary{{color:#475569}}
+}}
 </style></head><body>
 <h1>Cloud Security Assessment — Executive Summary</h1>
 <p class="sub">{html.escape(context.get("cloud", ""))} account {html.escape(context.get("accountId", ""))}
@@ -340,11 +351,11 @@ details.all-findings table{{margin-bottom:0}}
 {gap_card}
 </div>
 <h2>Compliance Rollup</h2>
-<table><thead><tr><th>Framework</th><th>Passed / Evaluated</th><th>Pass Rate</th></tr></thead>
+<table><caption>Compliance results</caption><thead><tr><th>Framework</th><th>Passed / Evaluated</th><th>Pass Rate</th></tr></thead>
 <tbody>{comp_rows or "<tr><td colspan=3>No mapped controls evaluated.</td></tr>"}</tbody></table>
 <h2>{findings_heading}</h2>
 {filters_toolbar}
-<table class="findings-table"><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
+<table class="findings-table"><caption>Findings sorted by remediation priority</caption><thead><tr><th>Severity</th><th>Control</th><th>Title</th><th>Resource</th><th>Remediation</th></tr></thead>
 <tbody>{rows or "<tr><td colspan=5>No findings.</td></tr>"}</tbody></table>
 {all_findings_section}
 {interactive_script}

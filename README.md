@@ -112,6 +112,28 @@ python3 -m pip install -r requirements-k8s.txt
 python3 test_dependencies.py
 ```
 
+For actionable prerequisite, packaged-resource, and output-directory checks:
+
+```bash
+python3 invoke_assessment.py --preflight
+```
+
+To preview the selected controls without credentials or network calls:
+
+```bash
+python3 invoke_assessment.py --plan --cloud aws --profile Assessment
+```
+
+See the generated [CLI reference](docs/CLI_REFERENCE.md) for the complete
+option surface. For a guided offline fixture run that verifies its manifest:
+
+```bash
+python3 invoke_assessment.py --tutorial --output-dir tutorial-output
+```
+
+Remove only that tutorial output with
+`--cleanup-tutorial --output-dir tutorial-output`.
+
 ### 3. Offline demo (no cloud needed)
 
 ```bash
@@ -213,6 +235,12 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARN`, or `ERROR` |
 | `--check-only` | off | Preflight — validate profile, engagement, scope, and catalog selection, then exit without contacting the cloud or writing reports |
 | `--self-check` | off | Offline run with synthetic data, no cloud calls |
+| `--preflight` | off | Dependency-aware local prerequisite check; no cloud calls or reports |
+| `--plan` | off | Deterministic no-network control and scope preview |
+| `--tutorial` | off | Run the safe offline fixture tutorial and verify `manifest.json` |
+| `--cleanup-tutorial` | off | Remove only a tutorial output directory explicitly named by `--output-dir` |
+| `--no-color` | off | Plain terminal output without color or decorative styling |
+| `--output-format` | `text` | Format preflight/plan output as `text` or `json` |
 | `--explain` | none | Print a control's intent, expected state, mappings, and remediation (offline), then exit |
 | `--help` | off | Show the CLI help and exit |
 

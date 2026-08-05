@@ -39,7 +39,10 @@ Validation profile (requires an approving engagement file):
 from __future__ import annotations
 
 import argparse
+import json
+import shutil
 import sys
+from pathlib import Path
 
 from csaf import FRAMEWORK_VERSION
 from csaf.runner import RunConfig, run_assessment
@@ -183,6 +186,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Preflight: validate the profile, engagement, scope, and catalog selection, then exit "
         "without contacting the cloud or writing reports (exit 0 if a run would be authorized, 1 otherwise).",
     )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="Check Python, dependencies, packaged resources, and output access without cloud calls or reports.",
+    )
+    parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="Print a deterministic no-network control and scope preview, then exit.",
+    )
+    parser.add_argument(
+        "--tutorial",
+        action="store_true",
+        help="Run the safe offline fixture tutorial and verify its manifest.",
+    )
+    parser.add_argument(
+        "--cleanup-tutorial",
+        action="store_true",
+        help="Remove only the tutorial output directory named by --output-dir after a tutorial run.",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Use plain terminal output without color or decorative styling.",
+    )
+    parser.add_argument(
+        "--output-format",
+        choices=["text", "json"],
+        default="text",
+        help="Format --preflight or --plan output (default: text).",
+    )
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")
     return parser
@@ -190,6 +224,42 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.cleanup_tutorial and not args.tutorial:
+        output_path = Path(args.output_dir).resolve()
+        if output_path.name not in {"csaf-output", "tutorial-output"}:
+            print("[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.")
+            return 1
+        if not output_path.exists():
+            print(f"[TUTORIAL] Nothing to clean: {output_path}")
+            return 0
+        shutil.rmtree(output_path, ignore_errors=False)
+        print(f"[TUTORIAL] Cleaned tutorial output: {output_path}")
+        return 0
+
+    if args.preflight:
+        from csaf.preflight import format_preflight, preflight_json, run_preflight
+
+        checks = run_preflight(args.cloud, args.output_dir)
+        print(json.dumps(preflight_json(checks), indent=2) if args.output_format == "json" else format_preflight(checks))
+        return 0 if all(not check.required or check.status != "FAIL" for check in checks) else 1
+
+    if args.plan:
+        from csaf.preflight import plan_assessment
+
+        try:
+            plan = plan_assessment(args.cloud, args.profile, args.catalog, args.baseline)
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            print(f"[CSAF-E003] Could not build plan: {exc}\n    Fix: check --catalog and --baseline paths.")
+            return 1
+        print(json.dumps(plan, indent=2) if args.output_format == "json" else _format_plan(plan))
+        return 0
+
+    if args.tutorial:
+        args.self_check = True
+        args.cloud = "aws"
+        args.profile = "Assessment"
+        args.no_color = True
 
     if args.explain:
         from csaf.explain import explain_control
@@ -233,7 +303,37 @@ def main(argv: list[str] | None = None) -> int:
     if summary and args.log_level != "ERROR":
         print(summary)
     print(f"[*] Output written to {result.output_dir}")
+    if args.tutorial:
+        manifest = Path(result.output_dir) / "manifest.json"
+        if result.exit_code not in (0, 2) or not manifest.is_file():
+            print("[CSAF-E006] Tutorial verification failed: manifest.json was not produced.")
+            return 1
+        print(f"[TUTORIAL] Offline fixture evidence verified: {manifest}")
+        if args.cleanup_tutorial:
+            output_path = Path(args.output_dir).resolve()
+            if output_path.name != "csaf-output" and output_path.name != "tutorial-output":
+                print("[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.")
+                return 1
+            shutil.rmtree(output_path, ignore_errors=False)
+            print(f"[TUTORIAL] Cleaned tutorial output: {output_path}")
     return result.exit_code
+
+
+def _format_plan(plan: dict) -> str:
+    lines = [
+        "CSAF assessment plan (no cloud calls)",
+        f"Cloud: {plan['cloud']}",
+        f"Profile: {plan['profile']}",
+        f"Catalog: {plan['catalog']}",
+        f"Baseline: {plan['baseline']}",
+        f"Selected controls: {plan['selectedControls']}",
+        f"Excluded controls: {len(plan['excludedControls'])}",
+        "Network calls: 0",
+        f"Credentials required for execution: {'yes' if plan['requiresCredentials'] else 'no'}",
+        "",
+        plan["nextStep"],
+    ]
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
