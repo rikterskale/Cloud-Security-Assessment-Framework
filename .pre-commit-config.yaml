@@ -1,0 +1,23 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        language: system
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format
+        entry: ruff format --check csaf tests invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        language: system
+        pass_filenames: false
+      - id: compile
+        name: compile CSAF sources
+        entry: python -m compileall -q csaf invoke_assessment.py test_dependencies.py sign_engagement.py setup.py
+        language: system
+        pass_filenames: false
+      - id: novice-guides
+        name: validate novice guides
+        entry: python tests/validate_novice_guides.py
+        language: system
+        pass_filenames: false
