@@ -263,6 +263,9 @@ helper commands. All operate on local files except `csaf-campaign run`, which
 launches the assessment specified by its campaign and can contact the selected
 cloud unless that campaign was created with `--self-check`:
 
+For arguments, output locations, and exit behavior, see the
+[companion command reference](docs/COMPANION_COMMANDS.md).
+
 | Command | Purpose |
 |---|---|
 | `csaf-campaign` | Create, sign, verify, or run a replayable assessment **campaign** (reproducible runs) |

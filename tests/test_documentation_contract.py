@@ -66,6 +66,25 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertIn("Create, sign, verify, or run a replayable assessment", readme)
         self.assertIn("can contact the selected\ncloud unless", readme)
 
+    def test_readme_links_to_companion_command_reference(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        reference = ROOT / "docs" / "COMPANION_COMMANDS.md"
+        self.assertIn("](docs/COMPANION_COMMANDS.md)", readme)
+        self.assertTrue(reference.is_file())
+        text = reference.read_text(encoding="utf-8")
+        for command in (
+            "csaf-sign-engagement",
+            "csaf-lint-catalog",
+            "csaf-new-module",
+            "csaf-attest",
+            "csaf-drift",
+            "csaf-aggregate",
+            "csaf-detection-pack",
+            "csaf-attack-path",
+            "csaf-campaign",
+        ):
+            self.assertIn(command, text)
+
 
 if __name__ == "__main__":
     unittest.main()
