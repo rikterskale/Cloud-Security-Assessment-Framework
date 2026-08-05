@@ -1,9 +1,8 @@
 """Small documentation drift guards for the supported user-facing contract."""
 
+import sys
 import unittest
 from pathlib import Path
-
-import tomllib
 
 from invoke_assessment import build_parser
 
@@ -87,7 +86,10 @@ class DocumentationContractTests(unittest.TestCase):
         ):
             self.assertIn(command, text)
 
+    @unittest.skipIf(sys.version_info < (3, 11), "tomllib is only available on Python 3.11+")
     def test_every_packaged_console_script_is_documented(self):
+        import tomllib
+
         manifest = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         documented = "\n".join(
             (
