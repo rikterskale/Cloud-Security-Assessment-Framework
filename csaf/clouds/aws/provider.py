@@ -15,8 +15,17 @@ REGIONAL_MODULES = {"compute", "network", "logging", "kms", "rds", "secrets"}
 
 
 class AwsProvider:
-    def __init__(self, session, baseline, evidence, logger, engagement, profile: str, max_workers: int = 1,
-                 progress_callback=None):
+    def __init__(
+        self,
+        session,
+        baseline,
+        evidence,
+        logger,
+        engagement,
+        profile: str,
+        max_workers: int = 1,
+        progress_callback=None,
+    ):
         """``max_workers`` parallelizes regional-module evaluation across regions.
 
         Defaults to 1 (fully sequential, identical to earlier releases). Each

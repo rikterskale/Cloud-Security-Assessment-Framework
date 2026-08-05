@@ -270,7 +270,9 @@ def run_assessment(config: RunConfig) -> RunResult:
                         nonlocal completed_regions
                         with progress_lock:
                             completed_regions += 1
-                            print(f"Progress {progress_bar(completed_regions, len(config.regions), color=color)} region complete: {region}")
+                            print(
+                                f"Progress {progress_bar(completed_regions, len(config.regions), color=color)} region complete: {region}"
+                            )
 
                     provider_kwargs["progress_callback"] = show_region_progress
             elif config.cloud == "azure":

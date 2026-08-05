@@ -209,7 +209,11 @@ def main(argv: list[str] | None = None) -> int:
             campaign = sign_campaign(campaign, _load_key(args.key_file))
         save_campaign(campaign, args.output)
         print(f"[OK] Wrote campaign {args.output}" + (" (signed)" if args.key_file else " (unsigned)"))
-        print(next_steps(f"csaf-campaign run {args.output} --output-dir csaf-output", "The replayable campaign was saved."))
+        print(
+            next_steps(
+                f"csaf-campaign run {args.output} --output-dir csaf-output", "The replayable campaign was saved."
+            )
+        )
         return 0
 
     campaign = load_campaign(args.campaign)
@@ -223,13 +227,23 @@ def main(argv: list[str] | None = None) -> int:
         signed = sign_campaign(campaign, _load_key(args.key_file))
         save_campaign(signed, args.campaign)
         print(f"[OK] Signed {args.campaign}")
-        print(next_steps(f"csaf-campaign verify {args.campaign} --key-file {args.key_file}", "The campaign signature was updated."))
+        print(
+            next_steps(
+                f"csaf-campaign verify {args.campaign} --key-file {args.key_file}",
+                "The campaign signature was updated.",
+            )
+        )
         return 0
 
     if args.command == "verify":
         ok = verify_campaign(campaign, _load_key(args.key_file))
         print("[OK] Signature verifies." if ok else "[FAIL] Signature does not verify.")
-        print(next_steps(f"csaf-campaign run {args.campaign} --key-file {args.key_file}", "Campaign signature validation completed."))
+        print(
+            next_steps(
+                f"csaf-campaign run {args.campaign} --key-file {args.key_file}",
+                "Campaign signature validation completed.",
+            )
+        )
         return 0 if ok else 1
 
     # run

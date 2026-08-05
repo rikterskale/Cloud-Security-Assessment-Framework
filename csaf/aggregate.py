@@ -129,7 +129,12 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(aggregate['crossScopeControls'])} control(s) failing in multiple scopes."
     )
     print(f"[*] Wrote {paths['json']} and {paths['csv']}")
-    print(next_steps(f"Open {paths['csv']} to prioritize cross-scope controls.", "Completed runs were consolidated into an organization-wide summary."))
+    print(
+        next_steps(
+            f"Open {paths['csv']} to prioritize cross-scope controls.",
+            "Completed runs were consolidated into an organization-wide summary.",
+        )
+    )
     return 0
 
 

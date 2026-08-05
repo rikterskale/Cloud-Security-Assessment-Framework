@@ -107,7 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         for item in drift["resolved"]:
             print(f"  - RESOLVED [{item['Severity']}] {item['ControlId']} {item['ResourceId']}")
         print(f"[{'ALERT' if alert else 'OK'}] alert-on={args.alert_on}")
-        print(next_steps("Review the listed findings, then retain this report as the next comparison baseline.", "The two run artifacts were compared locally."))
+        print(
+            next_steps(
+                "Review the listed findings, then retain this report as the next comparison baseline.",
+                "The two run artifacts were compared locally.",
+            )
+        )
     return 1 if alert else 0
 
 

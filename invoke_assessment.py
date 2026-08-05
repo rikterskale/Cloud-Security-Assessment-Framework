@@ -89,7 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read-only multi-cloud security posture assessment (CSAF).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=_EXIT_CODE_HELP + "\nDiscover a control offline: --explain CONTROL_ID\nGenerate completion: --completion bash|zsh|powershell\n",
+        epilog=_EXIT_CODE_HELP
+        + "\nDiscover a control offline: --explain CONTROL_ID\nGenerate completion: --completion bash|zsh|powershell\n",
     )
     parser.add_argument(
         "--cloud",
@@ -215,7 +216,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     color_group.add_argument("--color", action="store_true", help="Force ANSI color when stdout is not a terminal.")
     parser.add_argument(
-        "--completion", choices=["bash", "zsh", "powershell"], default=None,
+        "--completion",
+        choices=["bash", "zsh", "powershell"],
+        default=None,
         help="Print shell completion generated from this command's argparse options, then exit.",
     )
     parser.add_argument(
@@ -316,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
     color = args.color or use_color(args.no_color)
     status_color = {"OK": "green", "INCOMPLETE": "yellow", "FATAL": "red"}[status]
     from csaf.console import style
+
     print(f"\n{style(f'[{status}]', status_color, enabled=color)} {result.message}")
     note = exit_code_note(result.exit_code)
     if note:
@@ -328,7 +332,12 @@ def main(argv: list[str] | None = None) -> int:
     if result.exit_code == 2 and args.self_check:
         print("[INCOMPLETE] is expected for --self-check: its fixture intentionally leaves one control untested.")
     if not args.tutorial:
-        print(next_steps("Open executive-summary.html, or run --explain CONTROL_ID for a remediation hint.", "Assessment reports and evidence were written."))
+        print(
+            next_steps(
+                "Open executive-summary.html, or run --explain CONTROL_ID for a remediation hint.",
+                "Assessment reports and evidence were written.",
+            )
+        )
     if args.tutorial:
         manifest = Path(result.output_dir) / "manifest.json"
         if result.exit_code not in (0, 2) or not manifest.is_file():

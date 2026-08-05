@@ -130,7 +130,9 @@ def format_preflight(checks: list[PreflightCheck]) -> str:
             + (
                 "python3 invoke_assessment.py --self-check --output-dir out"
                 if not required_failures
-                else next((f"Fix: {check.fix}" for check in required_failures if check.fix), "Fix the required checks above.")
+                else next(
+                    (f"Fix: {check.fix}" for check in required_failures if check.fix), "Fix the required checks above."
+                )
             ),
         ]
     )

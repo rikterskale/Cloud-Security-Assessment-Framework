@@ -41,4 +41,3 @@
 2. Run `python invoke_assessment.py --plan --cloud aws --profile Assessment`.
 3. Run `python invoke_assessment.py --tutorial --output-dir tutorial-output`.
 4. Remove only tutorial output with `--cleanup-tutorial --output-dir tutorial-output`.
-5. Explore a control without cloud access: `python invoke_assessment.py --explain AWS-S3-001`.
