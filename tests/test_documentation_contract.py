@@ -2,6 +2,7 @@
 
 import unittest
 from pathlib import Path
+
 import tomllib
 
 from invoke_assessment import build_parser

@@ -2,7 +2,11 @@
 
 All notable changes to CSAF are documented here.
 
-## Unreleased
+## 1.0.0 — Unreleased
+
+`pyproject.toml` declares version `1.0.0`; it has not yet been tagged as a
+`v1.0.0` release, so the entries below are the changes prepared for that first
+release.
 
 ### Added
 

@@ -1,8 +1,8 @@
 # CSAF Test Execution Report — Kubernetes
 
-> **Historical snapshot — captured 2026-07-29. Not current runtime evidence.** Re-generate on release; for the latest verified run see the GitHub Actions CI logs and CHANGELOG.
+> **Historical snapshot — captured 2026-08-05 against the 8-control Kubernetes catalog. Not current runtime evidence.** Re-generate on release; for the latest verified run see the GitHub Actions CI logs and CHANGELOG.
 
-**Date:** 2026-07-29
+**Date:** 2026-08-05
 **Framework version:** 1.0.0 &nbsp;|&nbsp; **Schema version:** 3.0
 **Python:** 3.13.13
 **Repository:** `Cloud-Security-Assessment-Framework` @ `main`
@@ -11,12 +11,12 @@
 
 ## 1. Overview
 
-This document is direct evidence that the newest CSAF provider — Kubernetes — is fully functional: its read-only API guardrail (`ReadOnlyApiClient`), all three check modules, and the full end-to-end reporting pipeline. Two independent executions were performed:
+This document is direct evidence that the Kubernetes provider is fully functional: its read-only API guardrail (`ReadOnlyApiClient`), all three check modules (rbac, pods, network), the operator-attestation Operations controls, and the full end-to-end reporting pipeline. Two independent executions were performed:
 
 1. **Unit test suite** — every Kubernetes-specific test file, run verbose, against fake (non-network) Kubernetes API doubles built with `types.SimpleNamespace` to mirror the real client's attribute-style typed objects.
 2. **Offline self-check pipeline** — the real `invoke_assessment.py` CLI, run against a deterministic synthetic posture (`--cloud k8s --self-check`), producing the same output file set as a live cluster assessment.
 
-No cluster credentials, network access, or the `kubernetes` Python package were required for either run — confirmed absent in this environment (see §3.5).
+No cluster credentials, network access, or the `kubernetes` Python package were required for either run — confirmed absent in this environment (see §3.4).
 
 ---
 
@@ -85,6 +85,8 @@ test_system_namespaces_excluded_from_denominator (tests.test_module_k8s_network.
 | `test_module_k8s_pods.py` | Privileged containers (including **privileged init containers**, not just regular containers) and `hostNetwork` pods; system namespaces (`kube-system`/`kube-public`/`kube-node-lease`) correctly excluded from the workload-pod denominator; pods with no `securityContext` at all correctly not flagged (can't be "privileged" without one). |
 | `test_module_k8s_network.py` | Namespaces without a `NetworkPolicy`; system namespaces excluded from the denominator (so a stock cluster's `kube-system` namespace lacking a `NetworkPolicy` never produces a false finding). |
 
+> The four Operations controls (`CSAF-K8S-OPS-001..004`: break-glass procedure, API-server audit logging, secrets encrypted at rest, and Pod Security Admission enforcement) are operator attestations resolved from the engagement file by the provider, not module checks; their dispatch is exercised by `test_provider_k8s.py`'s attestation tests above.
+
 ---
 
 ## 3. Self-Check Pipeline Execution
@@ -98,22 +100,27 @@ python3 invoke_assessment.py --cloud k8s --self-check --log-level DEBUG --output
 ### 3.2 Console output
 
 ```
-[INCOMPLETE] Completed. 4 findings, risk 55.0/100 (HIGH). Coverage 4/5 executed.
-[*] Output written to out
+[INCOMPLETE] Completed. 4 findings, risk 55.0/100 (HIGH). Coverage 7/8 executed.
+    (exit 2: completed, but some controls were NotTested or errored (e.g. a missing attestation))
+Risk: 55.0/100 (HIGH)
+Findings by severity: CRITICAL 2, HIGH 1, MEDIUM 1, LOW 0
+Coverage: 7/8 executed, 1 not tested, 0 errored
+[*] Output written to out/20260805T173952Z-f585619b
 ```
 
 ### 3.3 Structured log (`assessment-<ts>.log`, chronological)
 
 ```
-2026-07-29T22:03:42Z [INFO ] engagement: Profile 'Assessment' authorization: Read-only profile; no active-validation authorization required.
-2026-07-29T22:03:42Z [INFO ] catalog: Selected 5 controls for profile 'Assessment'.
-2026-07-29T22:03:42Z [INFO ] runner: Running in offline self-check mode (no cloud calls).
-2026-07-29T22:03:42Z [WARN ] coverage: SELECTED CHECK NOT COMPLETED: CSAF-K8S-OPS-001
-2026-07-29T22:03:42Z [INFO ] runner: Completed. 4 findings, risk 55.0/100 (HIGH). Coverage 4/5 executed.
-2026-07-29T22:03:42Z [WARN ] runner: CompletedWithErrors: not every selected control executed.
+2026-08-05T17:39:52Z [INFO ] engagement: Profile 'Assessment' authorization: Read-only profile; no active-validation authorization required.
+2026-08-05T17:39:52Z [INFO ] engagement: Requested scope authorization: No engagement supplied; read-only assessment is unscoped.
+2026-08-05T17:39:52Z [INFO ] catalog: Selected 8 controls for profile 'Assessment'.
+2026-08-05T17:39:52Z [INFO ] runner: Running in offline self-check mode (no cloud calls).
+2026-08-05T17:39:52Z [WARN ] coverage: SELECTED CHECK NOT COMPLETED: CSAF-K8S-OPS-001
+2026-08-05T17:39:52Z [INFO ] runner: Completed. 4 findings, risk 55.0/100 (HIGH). Coverage 7/8 executed.
+2026-08-05T17:39:52Z [WARN ] runner: CompletedWithErrors: not every selected control executed.
 ```
 
-`CSAF-K8S-OPS-001` (cluster break-glass attestation) correctly reports `NotTested`; the run correctly exits `CompletedWithErrors` (4 of 5 selected controls executed). Notably, in this demo posture **every executed control fails** (0 Pass, 4 Fail) — the synthetic cluster represents a deliberately worst-case posture (cluster-admin over-binding, a privileged container, a hostNetwork pod, and a namespace with no NetworkPolicy), which is why the risk score (55.0, HIGH) is driven entirely by findings rather than a mix of pass/fail.
+`CSAF-K8S-OPS-001` (cluster break-glass attestation) correctly reports `NotTested` because the self-check posture supplies no operator attestation for it; the run correctly exits `CompletedWithErrors` (7 of 8 selected controls executed). Of the 7 executed controls, 3 pass (the API-server audit-logging, secrets-encryption, and Pod Security Admission attestations are answered in the synthetic posture) and 4 fail (cluster-admin over-binding, a privileged container, a hostNetwork pod, and a namespace with no NetworkPolicy). The risk score (55.0, HIGH) is driven entirely by those 4 findings — passing and not-tested controls never contribute risk.
 
 ### 3.4 Environment note
 
@@ -133,14 +140,15 @@ The self-check run above completed successfully anyway, confirming `K8sSession`'
 
 ```
 out/
-├── assessment-20260729T220342Z.jsonl
-├── assessment-20260729T220342Z.log
+├── assessment-20260805T173952Z-f585619b.jsonl
+├── assessment-20260805T173952Z-f585619b.log
 ├── control-results.csv
 ├── control-results.jsonl
 ├── coverage-report.csv
 ├── coverage-report.json
 ├── detection-coverage.csv
 ├── detection-coverage.json
+├── evidence/
 ├── executive-summary.html
 ├── findings.csv
 ├── findings.json
@@ -151,43 +159,49 @@ out/
 
 Identical output file set to AWS/Azure/GCP — evidence that the cloud-agnostic core (reporting, coverage, manifest) supports the fourth provider.
 
-### 4.2 `control-results.jsonl` — full content (all 5 controls)
+### 4.2 `control-results.jsonl` — full content (all 8 controls)
 
 ```json
-{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-RBAC-001", "Title": "No non-system subject is bound to cluster-admin", "Category": "RBAC", "Status": "Fail", "Severity": "CRITICAL", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "User 'alice' is bound to cluster-admin via demo-admin-binding", "ExpectedValue": "Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.", "Mappings": ["CIS-Kubernetes:5.1.1", "MITRE:T1078"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-07-29T22:03:42Z"}
-{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-POD-001", "Title": "No workload container runs privileged", "Category": "Pod Security", "Status": "Fail", "Severity": "CRITICAL", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "container 'app' runs privileged in pod default/legacy-app", "ExpectedValue": "No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.", "Mappings": ["CIS-Kubernetes:5.2.1", "MITRE:T1611"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-07-29T22:03:42Z"}
-{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-POD-002", "Title": "No workload pod uses the host network", "Category": "Pod Security", "Status": "Fail", "Severity": "HIGH", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "pod default/host-net-debug uses hostNetwork", "ExpectedValue": "No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.", "Mappings": ["CIS-Kubernetes:5.2.4", "MITRE:T1611"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-07-29T22:03:42Z"}
-{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-NET-001", "Title": "Every workload namespace has a NetworkPolicy", "Category": "Network", "Status": "Fail", "Severity": "MEDIUM", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "namespace has no NetworkPolicy: default", "ExpectedValue": "Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.", "Mappings": ["CIS-Kubernetes:5.3.2"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-07-29T22:03:42Z"}
-{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-OPS-001", "Title": "Cluster break-glass procedure is documented", "Category": "Operations", "Status": "NotTested", "Severity": "INFO", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "No operator attestation supplied.", "ExpectedValue": "A documented, tested break-glass procedure exists for cluster-admin access.", "Mappings": ["NIST-800-53:CP-2"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-07-29T22:03:42Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-RBAC-001", "Title": "No non-system subject is bound to cluster-admin", "Category": "RBAC", "Status": "Fail", "Severity": "CRITICAL", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "User 'alice' is bound to cluster-admin via demo-admin-binding", "ExpectedValue": "Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.", "Mappings": ["CIS-Kubernetes:5.1.1", "MITRE:T1078"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-POD-001", "Title": "No workload container runs privileged", "Category": "Pod Security", "Status": "Fail", "Severity": "CRITICAL", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "container 'app' runs privileged in pod default/legacy-app", "ExpectedValue": "No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.", "Mappings": ["CIS-Kubernetes:5.2.1", "MITRE:T1611"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-POD-002", "Title": "No workload pod uses the host network", "Category": "Pod Security", "Status": "Fail", "Severity": "HIGH", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "pod default/host-net-debug uses hostNetwork", "ExpectedValue": "No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.", "Mappings": ["CIS-Kubernetes:5.2.4", "MITRE:T1611"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-NET-001", "Title": "Every workload namespace has a NetworkPolicy", "Category": "Network", "Status": "Fail", "Severity": "MEDIUM", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "namespace has no NetworkPolicy: default", "ExpectedValue": "Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.", "Mappings": ["CIS-Kubernetes:5.3.2"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-OPS-001", "Title": "Cluster break-glass procedure is documented", "Category": "Operations", "Status": "NotTested", "Severity": "INFO", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "No operator attestation supplied.", "ExpectedValue": "A documented, tested break-glass procedure exists for cluster-admin access.", "Mappings": ["NIST-800-53:CP-2"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-OPS-002", "Title": "API server audit logging is enabled", "Category": "Operations", "Status": "Pass", "Severity": "INFO", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "Meets expected state (synthetic).", "ExpectedValue": "The kube-apiserver runs with --audit-log-path and an audit policy that records security-relevant events.", "Mappings": ["CIS-Kubernetes:3.2.1", "MITRE:T1562.008"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-OPS-003", "Title": "Secrets are encrypted at rest", "Category": "Operations", "Status": "Pass", "Severity": "INFO", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "Meets expected state (synthetic).", "ExpectedValue": "An EncryptionConfiguration encrypts Secret resources at rest in etcd using an aescbc or KMS provider (not identity-only).", "Mappings": ["CIS-Kubernetes:3.1.1", "MITRE:T1552.007"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
+{"SchemaVersion": "3.0", "ControlId": "CSAF-K8S-OPS-004", "Title": "Admission control enforces Pod Security Standards", "Category": "Operations", "Status": "Pass", "Severity": "INFO", "Confidence": "HIGH", "Cloud": "K8s", "AccountId": "csaf-selfcheck-cluster", "Region": "global", "ResourceType": "", "ResourceId": "", "ObservedValue": "Meets expected state (synthetic).", "ExpectedValue": "Pod Security Admission (or an equivalent controller such as OPA/Kyverno) enforces at least the 'baseline' standard on workload namespaces.", "Mappings": ["CIS-Kubernetes:5.2.2", "MITRE:T1610"], "EvidenceRef": "", "ErrorReason": "", "CollectedAtUtc": "2026-08-05T17:39:52Z"}
 ```
 
 ### 4.3 `findings.csv` — full content (4 findings)
 
 ```csv
 FindingId,ControlId,Title,Status,Severity,RiskScore,Confidence,Cloud,AccountId,Region,ResourceType,ResourceId,ObservedValue,ExpectedValue,Finding,Remediation,FirstObservedUtc
-F-6F4293D6177060CA,CSAF-K8S-POD-001,No workload container runs privileged,Open,CRITICAL,95,HIGH,K8s,csaf-selfcheck-cluster,global,,,container 'app' runs privileged in pod default/legacy-app,No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.,No workload container runs privileged: the assessed state does not meet the expected state.,Remove privileged: true from the container's securityContext; use specific capabilities instead.,2026-07-29T22:03:42Z
-F-3A9C3A7AD93B1D04,CSAF-K8S-RBAC-001,No non-system subject is bound to cluster-admin,Open,CRITICAL,95,HIGH,K8s,csaf-selfcheck-cluster,global,,,User 'alice' is bound to cluster-admin via demo-admin-binding,Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.,No non-system subject is bound to cluster-admin: the assessed state does not meet the expected state.,Remove the ClusterRoleBinding or replace the subject with a least-privilege Role/RoleBinding.,2026-07-29T22:03:42Z
-F-0D0691073941920D,CSAF-K8S-POD-002,No workload pod uses the host network,Open,HIGH,75,HIGH,K8s,csaf-selfcheck-cluster,global,,,pod default/host-net-debug uses hostNetwork,No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.,No workload pod uses the host network: the assessed state does not meet the expected state.,Remove hostNetwork: true from the pod spec unless required and explicitly approved.,2026-07-29T22:03:42Z
-F-D5B13A2731492F49,CSAF-K8S-NET-001,Every workload namespace has a NetworkPolicy,Open,MEDIUM,50,HIGH,K8s,csaf-selfcheck-cluster,global,,,namespace has no NetworkPolicy: default,Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.,Every workload namespace has a NetworkPolicy: the assessed state does not meet the expected state.,"Create a default-deny NetworkPolicy in the namespace, then allow only required traffic.",2026-07-29T22:03:42Z
+F-6F4293D6177060CA,CSAF-K8S-POD-001,No workload container runs privileged,Open,CRITICAL,95,HIGH,K8s,csaf-selfcheck-cluster,global,,,container 'app' runs privileged in pod default/legacy-app,No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.,No workload container runs privileged: the assessed state does not meet the expected state.,Remove privileged: true from the container's securityContext; use specific capabilities instead.,2026-08-05T17:39:52Z
+F-3A9C3A7AD93B1D04,CSAF-K8S-RBAC-001,No non-system subject is bound to cluster-admin,Open,CRITICAL,95,HIGH,K8s,csaf-selfcheck-cluster,global,,,User 'alice' is bound to cluster-admin via demo-admin-binding,Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.,No non-system subject is bound to cluster-admin: the assessed state does not meet the expected state.,Remove the ClusterRoleBinding or replace the subject with a least-privilege Role/RoleBinding.,2026-08-05T17:39:52Z
+F-0D0691073941920D,CSAF-K8S-POD-002,No workload pod uses the host network,Open,HIGH,75,HIGH,K8s,csaf-selfcheck-cluster,global,,,pod default/host-net-debug uses hostNetwork,No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.,No workload pod uses the host network: the assessed state does not meet the expected state.,Remove hostNetwork: true from the pod spec unless required and explicitly approved.,2026-08-05T17:39:52Z
+F-D5B13A2731492F49,CSAF-K8S-NET-001,Every workload namespace has a NetworkPolicy,Open,MEDIUM,50,HIGH,K8s,csaf-selfcheck-cluster,global,,,namespace has no NetworkPolicy: default,Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.,Every workload namespace has a NetworkPolicy: the assessed state does not meet the expected state.,"Create a default-deny NetworkPolicy in the namespace, then allow only required traffic.",2026-08-05T17:39:52Z
 ```
 
-**Verification: findings ⊆ Fail/Review.** All 4 findings correspond exactly to the 4 `Fail` controls in §4.2 (`CSAF-K8S-RBAC-001`, `CSAF-K8S-POD-001`, `CSAF-K8S-POD-002`, `CSAF-K8S-NET-001`). `CSAF-K8S-OPS-001` (`NotTested`) is correctly absent — even in a run with zero `Pass` results, the `NotTested`-never-a-finding invariant still held.
+**Verification: findings ⊆ Fail/Review.** All 4 findings correspond exactly to the 4 `Fail` controls in §4.2 (`CSAF-K8S-RBAC-001`, `CSAF-K8S-POD-001`, `CSAF-K8S-POD-002`, `CSAF-K8S-NET-001`). The 3 `Pass` controls and the 1 `NotTested` control (`CSAF-K8S-OPS-001`) are correctly absent — the `NotTested`-never-a-finding and `Pass`-never-a-finding invariants both held.
 
 ### 4.4 `coverage-report.json` — full content
 
 ```json
 {
-  "SelectedControls": 5,
-  "Executed": 4,
-  "ExecutedRatio": 0.8,
-  "Pass": 0,
+  "CoverageSchemaVersion": "1.0",
+  "SelectedControls": 8,
+  "Executed": 7,
+  "ExecutedRatio": 0.875,
+  "Pass": 3,
   "Fail": 4,
   "Review": 0,
   "NotApplicable": 0,
   "NotTested": 1,
   "Error": 0,
   "AllSelectedControlsExecuted": false,
-  "NotTestedControls": ["CSAF-K8S-OPS-001"]
+  "NotTestedControls": [
+    "CSAF-K8S-OPS-001"
+  ]
 }
 ```
 
@@ -196,11 +210,14 @@ F-D5B13A2731492F49,CSAF-K8S-NET-001,Every workload namespace has a NetworkPolicy
 ```json
 [
   {"Technique": "T1078", "Status": "Gap", "ControlIds": ["CSAF-K8S-RBAC-001"], "GapControlIds": ["CSAF-K8S-RBAC-001"]},
+  {"Technique": "T1552.007", "Status": "Covered", "ControlIds": ["CSAF-K8S-OPS-003"], "GapControlIds": []},
+  {"Technique": "T1562.008", "Status": "Covered", "ControlIds": ["CSAF-K8S-OPS-002"], "GapControlIds": []},
+  {"Technique": "T1610", "Status": "Covered", "ControlIds": ["CSAF-K8S-OPS-004"], "GapControlIds": []},
   {"Technique": "T1611", "Status": "Gap", "ControlIds": ["CSAF-K8S-POD-001", "CSAF-K8S-POD-002"], "GapControlIds": ["CSAF-K8S-POD-001", "CSAF-K8S-POD-002"]}
 ]
 ```
 
-Both MITRE ATT&CK Containers-matrix techniques referenced by this catalog (`T1078` — Valid Accounts; `T1611` — Escape to Host) show a real gap in this demo posture, consistent with the 4 Fail results above. `CSAF-K8S-NET-001` has no MITRE mapping (CIS-Kubernetes only), so it correctly does not appear in this technique-keyed rollup.
+The rollup is keyed by MITRE ATT&CK technique and is consistent with the results above: the three passing Operations attestations mark their techniques **Covered** (`T1552.007` — Unsecured Credentials: Container API; `T1562.008` — Impair Defenses: Disable Cloud Logs; `T1610` — Deploy Container), while the failing RBAC and Pod controls mark **Gap** for `T1078` (Valid Accounts) and `T1611` (Escape to Host). `CSAF-K8S-NET-001` has no MITRE mapping (CIS-Kubernetes only), so it correctly does not appear in this technique-keyed rollup.
 
 ### 4.6 `remediation-roadmap.csv` — full content
 
@@ -242,13 +259,13 @@ Kubernetes is the one provider among the four where a "read-only" verb prefix is
 | Check | Result |
 |---|---|
 | Unit tests (Kubernetes-specific) | **26 / 26 passed** |
-| Self-check exit code | `2` (`CompletedWithErrors`) — correct, 1 of 5 controls `NotTested` |
-| Findings ⊆ {Fail, Review} controls | **Verified** — exact match, held even with a 0-Pass run |
-| Coverage tracked independently of findings | **Verified** |
-| Detection-coverage rollup consistent with findings | **Verified** — both referenced ATT&CK techniques show a real gap |
+| Self-check exit code | `2` (`CompletedWithErrors`) — correct, 1 of 8 controls `NotTested` |
+| Findings ⊆ {Fail, Review} controls | **Verified** — exact match; `Pass` and `NotTested` controls never became findings |
+| Coverage tracked independently of findings | **Verified** — 7/8 executed (3 Pass, 4 Fail, 1 NotTested) |
+| Detection-coverage rollup consistent with results | **Verified** — passing OPS attestations Covered; failing RBAC/Pod techniques Gap |
 | `connect_*` (exec/attach/port-forward) blocked | **Verified** — the Kubernetes-specific guardrail edge case, not just CRUD verbs |
 | System namespaces excluded from pod/network denominators | **Verified** — `kube-system` et al. never produce false findings |
 | Manifest SHA-256 integrity | **Verified** — 3 independently recomputed hashes match |
 | Runs without the `kubernetes` package installed | **Verified** |
 
-**Conclusion: the Kubernetes provider — `ReadOnlyApiClient`'s `list_*`/`read_*`-only guardrail (including the `connect_*` exec/attach block), all 3 check modules (rbac, pods, network), and the full reporting pipeline — is fully functional end to end, evidenced by a real execution, not just passing unit tests. This is also proof that CSAF's cloud-agnostic core required zero changes to onboard a fourth, architecturally different provider (no regions, no "account ID" concept, a different SDK ecosystem entirely).**
+**Conclusion: the Kubernetes provider — `ReadOnlyApiClient`'s `list_*`/`read_*`-only guardrail (including the `connect_*` exec/attach block), all 3 check modules (rbac, pods, network), the 4 operator-attestation Operations controls, and the full reporting pipeline — is fully functional end to end, evidenced by a real execution, not just passing unit tests. This is also proof that CSAF's cloud-agnostic core required zero changes to onboard a fourth, architecturally different provider (no regions, no "account ID" concept, a different SDK ecosystem entirely).**

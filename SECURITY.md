@@ -27,8 +27,9 @@ In scope:
 
 - The `csaf/` framework core and any `csaf/clouds/<cloud>/` provider.
 - The CLI (`invoke_assessment.py`) and preflight script (`test_dependencies.py`).
-- The read-only guardrails (`ReadOnlyClient`, `ArmSession`, `GcpSession`) and
-  the engagement authorization checks (`csaf/engagement.py`).
+- The read-only guardrails (`ReadOnlyClient`, `ArmSession`, `GcpSession`,
+  `ReadOnlyApiClient`) and the engagement authorization checks
+  (`csaf/engagement.py`).
 
 Out of scope:
 

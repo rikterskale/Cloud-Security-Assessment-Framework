@@ -8,7 +8,7 @@ is the single most important contribution guideline.
 
 - **Never introduce a mutating cloud call.** All provider access must go through
   the read-only session guards (`ReadOnlyClient`, `ArmSession`, `GcpSession`,
-  `K8sSession`). New AWS operations must be non-mutating; `tests/test_readonly*.py`
+  `ReadOnlyApiClient`). New AWS operations must be non-mutating; `tests/test_readonly*.py`
   enforces this and must stay green.
 - **Errors are never a pass.** A check that cannot complete must return an
   `Error`/`NotTested` result, never `Pass`. See `csaf/clouds/base.py`.
