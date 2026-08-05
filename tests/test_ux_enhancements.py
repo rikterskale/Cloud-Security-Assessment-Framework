@@ -7,9 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from invoke_assessment import build_parser, main
 from csaf.preflight import plan_assessment, run_preflight
-
+from invoke_assessment import build_parser, main
 
 ROOT = Path(__file__).resolve().parents[1]
 

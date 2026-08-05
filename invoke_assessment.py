@@ -241,7 +241,9 @@ def main(argv: list[str] | None = None) -> int:
         from csaf.preflight import format_preflight, preflight_json, run_preflight
 
         checks = run_preflight(args.cloud, args.output_dir)
-        print(json.dumps(preflight_json(checks), indent=2) if args.output_format == "json" else format_preflight(checks))
+        print(
+            json.dumps(preflight_json(checks), indent=2) if args.output_format == "json" else format_preflight(checks)
+        )
         return 0 if all(not check.required or check.status != "FAIL" for check in checks) else 1
 
     if args.plan:
