@@ -45,8 +45,8 @@ import sys
 from pathlib import Path
 
 from csaf import FRAMEWORK_VERSION
-from csaf.runner import RunConfig, run_assessment
 from csaf.console import findings_table, next_steps, use_color
+from csaf.runner import RunConfig, run_assessment
 
 EXIT_CODE_MEANING = {
     0: "all selected controls executed, no errors",

@@ -258,8 +258,9 @@ def run_assessment(config: RunConfig) -> RunResult:
                 scope_note = f"account {account_id} in regions {config.regions}"
                 provider_kwargs["max_workers"] = config.max_workers
                 if len(config.regions) > 1:
-                    from .console import progress_bar, use_color
                     from threading import Lock
+
+                    from .console import progress_bar, use_color
 
                     completed_regions = 0
                     color = config.color or use_color(config.no_color)

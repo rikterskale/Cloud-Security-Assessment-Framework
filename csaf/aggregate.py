@@ -22,7 +22,6 @@ import sys
 from pathlib import Path
 
 from .console import next_steps
-
 from .model import FINDING_SEVERITIES
 
 

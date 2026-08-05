@@ -24,7 +24,6 @@ import sys
 from pathlib import Path
 
 from .console import next_steps
-
 from .engagement_signing import sign, verify
 from .model import utcnow_iso
 

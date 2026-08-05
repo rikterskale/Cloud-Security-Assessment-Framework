@@ -6,7 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-
 _ANSI = {"red": "31", "green": "32", "yellow": "33", "blue": "34", "bold": "1"}
 
 

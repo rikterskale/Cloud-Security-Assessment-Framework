@@ -23,7 +23,6 @@ import sys
 from pathlib import Path
 
 from .console import next_steps
-
 from .model import FINDING_SEVERITIES
 
 _SEVERITY_RANK = {sev: rank for rank, sev in enumerate(FINDING_SEVERITIES)}  # LOW=0 .. CRITICAL=3
