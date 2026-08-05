@@ -2,6 +2,7 @@
 
 import unittest
 from pathlib import Path
+import tomllib
 
 from invoke_assessment import build_parser
 
@@ -84,6 +85,17 @@ class DocumentationContractTests(unittest.TestCase):
             "csaf-campaign",
         ):
             self.assertIn(command, text)
+
+    def test_every_packaged_console_script_is_documented(self):
+        manifest = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+        documented = "\n".join(
+            (
+                (ROOT / "README.md").read_text(encoding="utf-8"),
+                (ROOT / "docs" / "COMPANION_COMMANDS.md").read_text(encoding="utf-8"),
+            )
+        )
+        for command in manifest["project"]["scripts"]:
+            self.assertIn(command, documented, f"Missing documentation for console script: {command}")
 
 
 if __name__ == "__main__":
