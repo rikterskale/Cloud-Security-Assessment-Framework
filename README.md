@@ -24,7 +24,8 @@ catalog and CIS-aligned baseline.
 
 ## Table of contents
 
-- [Novice Usability Guide](docs/NOVICE_USABILITY_GUIDE.md) — start here if you are new
+- [Windows Novice Usability Guide](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) — start here if you are new to Windows
+- [Linux Novice Usability Guide](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md) — start here if you are new to Linux
 - [Design invariants](#design-invariants)
 - [Quick start](#quick-start)
 - [Container deployment](#container-deployment)
@@ -64,8 +65,8 @@ pinned by unit tests (see [Testing](#testing)):
 
 ## Quick start
 
-> **New to the terminal, Git, or Python? Start here → [Novice Usability Guide](docs/NOVICE_USABILITY_GUIDE.md).**
-> It walks you from an unprepared computer to a verified first result, with troubleshooting, cleanup, and uninstall steps. For OS-specific terminal detail, see the platform guides: [Windows](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md). All assume no prior experience and start with the safe offline demo.
+> **New to the terminal, Git, or Python? Start with the guide for your operating system: [Windows](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md).**
+> Each guide walks you from an unprepared computer to a verified first result, with troubleshooting, cleanup, and uninstall steps. Both assume no prior experience and start with the safe offline demo.
 
 **Your first successful run takes one command and needs no cloud account, credentials, or internet** — it uses synthetic data to prove the tool works end to end and writes a full set of reports:
 
@@ -257,8 +258,10 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 
 ### Companion commands
 
-Besides `csaf-assess` and `csaf-sign-engagement`, the package installs focused,
-read-only helper commands (all offline, none perform cloud calls):
+Besides `csaf-assess` and `csaf-sign-engagement`, the package installs focused
+helper commands. All operate on local files except `csaf-campaign run`, which
+launches the assessment specified by its campaign and can contact the selected
+cloud unless that campaign was created with `--self-check`:
 
 | Command | Purpose |
 |---|---|

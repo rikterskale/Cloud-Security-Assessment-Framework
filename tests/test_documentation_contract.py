@@ -52,6 +52,15 @@ class DocumentationContractTests(unittest.TestCase):
         for name in artifacts:
             self.assertIn(name, readme)
 
+    def test_readme_novice_guide_links_target_existing_canonical_guides(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for guide in (
+            "docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md",
+            "docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md",
+        ):
+            self.assertIn(f"]({guide})", readme)
+            self.assertTrue((ROOT / guide).is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
