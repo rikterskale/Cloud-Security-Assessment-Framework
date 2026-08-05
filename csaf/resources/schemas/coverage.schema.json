@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://csaf.example/schemas/coverage.schema.json",
+  "title": "CSAF coverage report",
+  "type": "object",
+  "required": ["CoverageSchemaVersion", "SelectedControls", "Executed", "ExecutedRatio", "Pass", "Fail", "Review", "NotApplicable", "NotTested", "Error", "NotTestedControls"],
+  "properties": {
+    "CoverageSchemaVersion": {"const": "1.0"},
+    "SelectedControls": {"type": "integer", "minimum": 0},
+    "Executed": {"type": "integer", "minimum": 0},
+    "ExecutedRatio": {"type": "number", "minimum": 0, "maximum": 1},
+    "Pass": {"type": "integer", "minimum": 0},
+    "Fail": {"type": "integer", "minimum": 0},
+    "Review": {"type": "integer", "minimum": 0},
+    "NotApplicable": {"type": "integer", "minimum": 0},
+    "NotTested": {"type": "integer", "minimum": 0},
+    "Error": {"type": "integer", "minimum": 0},
+    "AllSelectedControlsExecuted": {"type": "boolean"},
+    "NotTestedControls": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
