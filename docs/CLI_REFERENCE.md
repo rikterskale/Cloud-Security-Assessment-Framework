@@ -29,6 +29,8 @@
 | `--tutorial` | `False` | Run the safe offline fixture tutorial and verify its manifest. |
 | `--cleanup-tutorial` | `False` | Remove only the tutorial output directory named by --output-dir after a tutorial run. |
 | `--no-color` | `False` | Use plain terminal output without color or decorative styling. |
+| `--color` | `False` | Force ANSI color when stdout is not a terminal. |
+| `--completion` | `none` | Print shell completion generated from this command's argparse options, then exit. |
 | `--output-format` | `text` | Format --preflight or --plan output (default: text). |
 | `--self-check` | `False` | Run offline with synthetic data (no cloud calls). |
 | `--version` | `==SUPPRESS==` | show program's version number and exit |
@@ -39,3 +41,4 @@
 2. Run `python invoke_assessment.py --plan --cloud aws --profile Assessment`.
 3. Run `python invoke_assessment.py --tutorial --output-dir tutorial-output`.
 4. Remove only tutorial output with `--cleanup-tutorial --output-dir tutorial-output`.
+5. Explore a control without cloud access: `python invoke_assessment.py --explain AWS-S3-001`.

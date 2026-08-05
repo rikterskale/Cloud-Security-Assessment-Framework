@@ -1,0 +1,6 @@
+#compdef csaf-assess
+# Generated from invoke_assessment.build_parser().
+_csaf_assess() {
+  _arguments '*: :(-h --help --cloud --profile --regions --catalog --baseline --engagement --engagement-key-file --previous-findings --aws-profile --subscription --project --kube-context --kubeconfig --max-workers --output-dir --export --attest-key-file --log-level --explain --check-only --preflight --plan --tutorial --cleanup-tutorial --no-color --color --completion --output-format --self-check --version)'
+}
+compdef _csaf_assess csaf-assess

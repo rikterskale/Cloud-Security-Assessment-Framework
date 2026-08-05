@@ -26,6 +26,8 @@ known_limitations:
 
 # CSAF Linux Novice Usability Guide
 
+> Quickest first run from a checkout: `sh scripts/quickstart.sh`. It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
+
 ## 1. About This Guide
 
 This guide takes you, step by step, from a fresh Linux computer to running your first CSAF security assessment safely. It assumes **no prior experience** with the terminal, Git, Python, package managers, or repositories. Every technical word is defined in the **Glossary** (section 29). Every command has an ID (like `LNX-CMD-001`), tells you where to run it, and says what to expect.

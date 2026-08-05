@@ -15,7 +15,8 @@ REGIONAL_MODULES = {"compute", "network", "logging", "kms", "rds", "secrets"}
 
 
 class AwsProvider:
-    def __init__(self, session, baseline, evidence, logger, engagement, profile: str, max_workers: int = 1):
+    def __init__(self, session, baseline, evidence, logger, engagement, profile: str, max_workers: int = 1,
+                 progress_callback=None):
         """``max_workers`` parallelizes regional-module evaluation across regions.
 
         Defaults to 1 (fully sequential, identical to earlier releases). Each
@@ -30,6 +31,7 @@ class AwsProvider:
         self.engagement = engagement
         self.profile = profile
         self.max_workers = max(1, max_workers)
+        self.progress_callback = progress_callback
         self.account_id = session.account_id
         self._module_instances: dict[str, object] = {}
         self._global_cache: dict = {}
@@ -111,6 +113,8 @@ class AwsProvider:
             for control in module_controls:
                 self.logger.info(module_name, f"Evaluating {control.id} ({region})", controlId=control.id)
                 region_results.extend(module.evaluate(control, ctx))
+        if self.progress_callback:
+            self.progress_callback(region)
         return region_results
 
     def _attestations(self, controls: list[Control]) -> list:

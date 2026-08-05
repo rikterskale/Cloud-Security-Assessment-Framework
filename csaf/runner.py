@@ -93,6 +93,8 @@ class RunConfig:
     export: list[str] = field(default_factory=list)
     attest_key_path: str | None = None
     check_only: bool = False
+    no_color: bool = False
+    color: bool = False
 
 
 @dataclass
@@ -255,6 +257,21 @@ def run_assessment(config: RunConfig) -> RunResult:
                 account_id = session.account_id
                 scope_note = f"account {account_id} in regions {config.regions}"
                 provider_kwargs["max_workers"] = config.max_workers
+                if len(config.regions) > 1:
+                    from .console import progress_bar, use_color
+                    from threading import Lock
+
+                    completed_regions = 0
+                    color = config.color or use_color(config.no_color)
+                    progress_lock = Lock()
+
+                    def show_region_progress(region: str) -> None:
+                        nonlocal completed_regions
+                        with progress_lock:
+                            completed_regions += 1
+                            print(f"Progress {progress_bar(completed_regions, len(config.regions), color=color)} region complete: {region}")
+
+                    provider_kwargs["progress_callback"] = show_region_progress
             elif config.cloud == "azure":
                 from .clouds.azure.provider import AzureProvider as Provider
                 from .clouds.azure.session import ArmSession

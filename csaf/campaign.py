@@ -23,6 +23,8 @@ import json
 import sys
 from pathlib import Path
 
+from .console import next_steps
+
 from .engagement_signing import sign, verify
 from .model import utcnow_iso
 
@@ -208,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
             campaign = sign_campaign(campaign, _load_key(args.key_file))
         save_campaign(campaign, args.output)
         print(f"[OK] Wrote campaign {args.output}" + (" (signed)" if args.key_file else " (unsigned)"))
+        print(next_steps(f"csaf-campaign run {args.output} --output-dir csaf-output", "The replayable campaign was saved."))
         return 0
 
     campaign = load_campaign(args.campaign)
@@ -221,11 +224,13 @@ def main(argv: list[str] | None = None) -> int:
         signed = sign_campaign(campaign, _load_key(args.key_file))
         save_campaign(signed, args.campaign)
         print(f"[OK] Signed {args.campaign}")
+        print(next_steps(f"csaf-campaign verify {args.campaign} --key-file {args.key_file}", "The campaign signature was updated."))
         return 0
 
     if args.command == "verify":
         ok = verify_campaign(campaign, _load_key(args.key_file))
         print("[OK] Signature verifies." if ok else "[FAIL] Signature does not verify.")
+        print(next_steps(f"csaf-campaign run {args.campaign} --key-file {args.key_file}", "Campaign signature validation completed."))
         return 0 if ok else 1
 
     # run
@@ -249,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
         f"[{'OK' if result.exit_code == 0 else 'INCOMPLETE' if result.exit_code == 2 else 'FATAL'}] {result.message}"
     )
     print(f"[*] Output written to {result.output_dir}")
+    print(next_steps("Open executive-summary.html in the output run directory.", "The campaign assessment completed."))
     return result.exit_code
 
 

@@ -16,6 +16,8 @@ core (engagement, catalog, coverage, findings, reporting) is cloud-agnostic;
 each cloud plugs in as a provider under `csaf/clouds/` with its own control
 catalog and CIS-aligned baseline.
 
+[![Platform validation](https://img.shields.io/badge/platform%20validation-see%20matrix-2563eb)](docs/test-execution/README.md)
+
 > The offensive red-team methodology documents that seeded this project live
 > under [`reference/`](reference/) and are **reference-only**. The directory
 > also contains a standalone experimental aggregator; it is not packaged,
@@ -75,6 +77,15 @@ python3 invoke_assessment.py --self-check --output-dir out
 ```
 
 Expect `[INCOMPLETE] Completed. ... Coverage 29/30 executed.` and exit code `2` — that is success for the demo (one control is intentionally left untested). Once that works, continue below to install properly and assess a real environment.
+
+Or bootstrap a source checkout in one command (creates `.venv`, installs locked dependencies, and runs the same self-check):
+
+```bash
+# Linux/macOS
+sh scripts/quickstart.sh
+# Windows PowerShell
+& .\scripts\quickstart.ps1
+```
 
 ### 1. Install
 
@@ -145,6 +156,27 @@ python3 invoke_assessment.py --tutorial --output-dir tutorial-output
 
 Remove only that tutorial output with
 `--cleanup-tutorial --output-dir tutorial-output`.
+
+### Explore a single control
+
+Use the offline control explorer before an assessment to see its intent, expected state, framework mappings, and remediation snippet:
+
+```bash
+python3 invoke_assessment.py --cloud aws --explain AWS-S3-001
+```
+
+### Shell completion
+
+Completion is generated from the live `argparse` surface, so it stays aligned with `--help`:
+
+```bash
+csaf-assess --completion bash > ~/.local/share/bash-completion/completions/csaf-assess
+csaf-assess --completion zsh > ~/.zfunc/_csaf-assess
+csaf-assess --completion powershell > $HOME/csaf-assess-completion.ps1
+```
+
+Checked-in [Bash](completions/csaf-assess.bash), [Zsh](completions/_csaf-assess), and [PowerShell](completions/csaf-assess.ps1) examples are included too.
+Maintainers can regenerate them with `python tools/generate_completions.py bash` (or `zsh` / `powershell`).
 
 ### 3. Offline demo (no cloud needed)
 
@@ -252,6 +284,8 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--tutorial` | off | Run the safe offline fixture tutorial and verify `manifest.json` |
 | `--cleanup-tutorial` | off | Remove only a tutorial output directory explicitly named by `--output-dir` |
 | `--no-color` | off | Plain terminal output without color or decorative styling |
+| `--color` | off | Force ANSI color even when output is redirected or captured |
+| `--completion` | none | Print generated Bash, Zsh, or PowerShell completion and exit |
 | `--output-format` | `text` | Format preflight/plan output as `text` or `json` |
 | `--explain` | none | Print a control's intent, expected state, mappings, and remediation (offline), then exit |
 | `--help` | off | Show the CLI help and exit |

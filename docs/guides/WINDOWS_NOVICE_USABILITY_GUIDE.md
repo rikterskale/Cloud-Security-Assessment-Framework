@@ -21,6 +21,8 @@ known_limitations:
 
 # CSAF Windows Novice Usability Guide
 
+> Quickest first run from a checkout: `& .\scripts\quickstart.ps1`. It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
+
 ## 1. About This Guide
 
 This guide takes you from a fresh Windows computer to running your first CSAF security assessment safely, assuming **no prior experience** with PowerShell, Command Prompt, Git, Python, or repositories. Every technical term is defined in the **Glossary** (section 29). Every command has an ID (like `WIN-CMD-001`), tells you which application to run it in, and says what to expect.

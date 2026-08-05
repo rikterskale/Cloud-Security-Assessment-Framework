@@ -37,7 +37,7 @@ def run_preflight(
             "Python version",
             "PASS" if sys.version_info >= (3, 10) else "FAIL",
             sys.version.split()[0],
-            "Install Python 3.10 or newer.",
+            "" if sys.version_info >= (3, 10) else "Install Python 3.10 or newer.",
         ),
         _module_check(
             "boto3",
@@ -126,6 +126,12 @@ def format_preflight(checks: list[PreflightCheck]) -> str:
             "",
             "Result: "
             + ("PASS" if not required_failures else f"BLOCKED ({len(required_failures)} required check(s) failed)"),
+            "Next: "
+            + (
+                "python3 invoke_assessment.py --self-check --output-dir out"
+                if not required_failures
+                else next((f"Fix: {check.fix}" for check in required_failures if check.fix), "Fix the required checks above.")
+            ),
         ]
     )
     return "\n".join(lines)

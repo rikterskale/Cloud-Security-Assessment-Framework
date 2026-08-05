@@ -46,6 +46,7 @@ from pathlib import Path
 
 from csaf import FRAMEWORK_VERSION
 from csaf.runner import RunConfig, run_assessment
+from csaf.console import findings_table, next_steps, use_color
 
 EXIT_CODE_MEANING = {
     0: "all selected controls executed, no errors",
@@ -88,7 +89,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read-only multi-cloud security posture assessment (CSAF).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=_EXIT_CODE_HELP,
+        epilog=_EXIT_CODE_HELP + "\nDiscover a control offline: --explain CONTROL_ID\nGenerate completion: --completion bash|zsh|powershell\n",
     )
     parser.add_argument(
         "--cloud",
@@ -206,10 +207,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Remove only the tutorial output directory named by --output-dir after a tutorial run.",
     )
-    parser.add_argument(
+    color_group = parser.add_mutually_exclusive_group()
+    color_group.add_argument(
         "--no-color",
         action="store_true",
         help="Use plain terminal output without color or decorative styling.",
+    )
+    color_group.add_argument("--color", action="store_true", help="Force ANSI color when stdout is not a terminal.")
+    parser.add_argument(
+        "--completion", choices=["bash", "zsh", "powershell"], default=None,
+        help="Print shell completion generated from this command's argparse options, then exit.",
     )
     parser.add_argument(
         "--output-format",
@@ -224,6 +231,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.completion:
+        from csaf.completion import render
+
+        print(render(args.completion, build_parser()), end="")
+        return 0
 
     if args.cleanup_tutorial and not args.tutorial:
         output_path = Path(args.output_dir).resolve()
@@ -270,7 +283,8 @@ def main(argv: list[str] | None = None) -> int:
         if text is None:
             print(f"Control {args.explain!r} was not found in the {args.cloud} catalog.")
             return 1
-        print(text)
+        print("CSAF control explorer (offline)\n" + text)
+        print(next_steps("Run --plan to preview the full selected control set.", "No cloud calls were made."))
         return 0
 
     config = RunConfig(
@@ -294,17 +308,27 @@ def main(argv: list[str] | None = None) -> int:
         export=args.export,
         attest_key_path=args.attest_key_file,
         check_only=args.check_only,
+        no_color=args.no_color,
+        color=args.color,
     )
     result = run_assessment(config)
     status = "OK" if result.exit_code == 0 else "INCOMPLETE" if result.exit_code == 2 else "FATAL"
-    print(f"\n[{status}] {result.message}")
+    color = args.color or use_color(args.no_color)
+    status_color = {"OK": "green", "INCOMPLETE": "yellow", "FATAL": "red"}[status]
+    from csaf.console import style
+    print(f"\n{style(f'[{status}]', status_color, enabled=color)} {result.message}")
     note = exit_code_note(result.exit_code)
     if note:
         print(f"    {note}")
     summary = format_run_summary(result)
     if summary and args.log_level != "ERROR":
         print(summary)
+        print(findings_table(result, color=color))
     print(f"[*] Output written to {result.output_dir}")
+    if result.exit_code == 2 and args.self_check:
+        print("[INCOMPLETE] is expected for --self-check: its fixture intentionally leaves one control untested.")
+    if not args.tutorial:
+        print(next_steps("Open executive-summary.html, or run --explain CONTROL_ID for a remediation hint.", "Assessment reports and evidence were written."))
     if args.tutorial:
         manifest = Path(result.output_dir) / "manifest.json"
         if result.exit_code not in (0, 2) or not manifest.is_file():

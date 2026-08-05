@@ -22,6 +22,8 @@ import json
 import sys
 from pathlib import Path
 
+from .console import next_steps
+
 from .model import FINDING_SEVERITIES
 
 _SEVERITY_RANK = {sev: rank for rank, sev in enumerate(FINDING_SEVERITIES)}  # LOW=0 .. CRITICAL=3
@@ -106,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         for item in drift["resolved"]:
             print(f"  - RESOLVED [{item['Severity']}] {item['ControlId']} {item['ResourceId']}")
         print(f"[{'ALERT' if alert else 'OK'}] alert-on={args.alert_on}")
+        print(next_steps("Review the listed findings, then retain this report as the next comparison baseline.", "The two run artifacts were compared locally."))
     return 1 if alert else 0
 
 
