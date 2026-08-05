@@ -1,2 +1,2 @@
 # Optional dependencies for live Kubernetes assessment (--cloud k8s).
-kubernetes>=29,<30
+kubernetes>=36.0.3,<37
