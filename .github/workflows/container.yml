@@ -1,0 +1,62 @@
+name: Container certification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  linux-container:
+    name: Linux container capability certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Build Linux production image
+        run: docker build --pull --tag csaf:ci .
+      - name: Certify every provider path and report output
+        run: |
+          mkdir container-out
+          for cloud in aws azure gcp k8s; do
+            set +e
+            docker run --rm --read-only --cap-drop ALL --tmpfs /tmp \
+              --volume "$PWD/container-out:/work/out" \
+              csaf:ci --self-check --cloud "$cloud" --output-dir /work/out --log-level ERROR
+            code=$?
+            set -e
+            if [ "$code" -ne 2 ]; then
+              echo "$cloud self-check expected exit code 2; got $code"
+              exit 1
+            fi
+          done
+          test "$(find container-out -name manifest.json | wc -l)" -eq 4
+          test "$(find container-out -name technical-report.json | wc -l)" -eq 4
+
+  windows-container:
+    name: Windows container capability certification
+    # A Windows container requires a matching Windows daemon. Add this label to
+    # a hardened self-hosted Server 2022 runner to make this gate mandatory.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: [self-hosted, windows, windows-container]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.0.0
+        with:
+          persist-credentials: false
+      - name: Build Windows production image
+        shell: powershell
+        run: docker build --pull -f Dockerfile.windows -t csaf:windows-ci .
+      - name: Certify every provider path and report output
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force container-out | Out-Null
+          foreach ($cloud in 'aws', 'azure', 'gcp', 'k8s') {
+            docker run --rm -v "${PWD}\container-out:C:\work\out" csaf:windows-ci --self-check --cloud $cloud --output-dir C:\work\out --log-level ERROR
+            if ($LASTEXITCODE -ne 2) { throw "$cloud self-check expected exit code 2; got $LASTEXITCODE" }
+          }
+          if ((Get-ChildItem container-out -Recurse -Filter manifest.json).Count -ne 4) { throw 'Expected one manifest.json for each provider' }
+          if ((Get-ChildItem container-out -Recurse -Filter technical-report.json).Count -ne 4) { throw 'Expected one technical-report.json for each provider' }

@@ -27,6 +27,7 @@ catalog and CIS-aligned baseline.
 - [Novice Usability Guide](docs/NOVICE_USABILITY_GUIDE.md) — start here if you are new
 - [Design invariants](#design-invariants)
 - [Quick start](#quick-start)
+- [Container deployment](#container-deployment)
 - [Authorization profiles](#authorization-profiles)
 - [Exit codes](#exit-codes)
 - [Architecture and data flow](#architecture-and-data-flow)
@@ -105,6 +106,16 @@ python3 -m pip install -r requirements-gcp.txt
 ```bash
 python3 -m pip install -r requirements-k8s.txt
 ```
+
+### Container deployment
+
+Production-ready Linux and Windows container definitions install every
+supported provider SDK (AWS, Azure, GCP, and Kubernetes) from the hash-locked
+dependency set. Use the Linux image on Linux container hosts and the Windows
+image on Windows Server 2022-compatible container hosts; a single container
+cannot provide both operating-system kernels. See
+[Container support and certification](docs/CONTAINER_SUPPORT.md) for hardened
+run commands, platform support, and the CI certification gates.
 
 ### 2. Preflight
 

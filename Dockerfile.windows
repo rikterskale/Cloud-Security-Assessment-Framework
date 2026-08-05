@@ -1,0 +1,31 @@
+# escape=`
+# Windows containers must be built and run with a Windows Server 2022-compatible
+# Docker daemon.  This image has the same CSAF and provider-SDK capability set
+# as the Linux image; it is not an image that can run Linux binaries.
+FROM python:3.12-windowsservercore-ltsc2022
+
+LABEL org.opencontainers.image.title="Cloud Security Assessment Framework" `
+      org.opencontainers.image.description="Read-only multi-cloud security posture assessment" `
+      org.opencontainers.image.licenses="MIT"
+
+SHELL ["powershell", "-NoProfile", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+ENV PYTHONDONTWRITEBYTECODE=1 `
+    PYTHONUNBUFFERED=1 `
+    PIP_DISABLE_PIP_VERSION_CHECK=1 `
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR C:\opt\csaf
+COPY requirements-lock.txt .\
+RUN python -m pip install --require-hashes -r requirements-lock.txt
+
+COPY pyproject.toml README.md LICENSE invoke_assessment.py sign_engagement.py .\
+COPY csaf .\csaf
+RUN python -m pip install --no-deps --no-build-isolation .; `
+    New-Item -ItemType Directory -Force C:\work\out | Out-Null; `
+    icacls C:\work /grant '*S-1-5-32-545:(OI)(CI)M' /T | Out-Null
+
+WORKDIR C:\work
+USER ContainerUser
+VOLUME ["C:\\work\\out"]
+ENTRYPOINT ["csaf-assess.exe"]
+CMD ["--help"]
