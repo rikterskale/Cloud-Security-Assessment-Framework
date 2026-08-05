@@ -61,6 +61,11 @@ class DocumentationContractTests(unittest.TestCase):
             self.assertIn(f"]({guide})", readme)
             self.assertTrue((ROOT / guide).is_file())
 
+    def test_campaign_documentation_distinguishes_signing_from_running(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Create, sign, verify, or run a replayable assessment", readme)
+        self.assertIn("can contact the selected\ncloud unless", readme)
+
 
 if __name__ == "__main__":
     unittest.main()
