@@ -293,8 +293,8 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 ### Companion commands
 
 Besides `csaf-assess` and `csaf-sign-engagement`, the package installs focused
-helper commands. They operate on local files by default. `csaf-campaign run`
-can contact the selected cloud unless its campaign was created with
+helper commands. They operate on local files by default. `csaf-campaign run` can contact the selected
+cloud unless its campaign was created with
 `--self-check`; `csaf-attest external-sign` delegates to the explicitly invoked
 Cosign executable; and `csaf-drift --webhook-url` sends an explicitly configured
 webhook request:
