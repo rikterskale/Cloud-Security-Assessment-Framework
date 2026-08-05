@@ -31,9 +31,13 @@ Linux / PowerShell:
 docker build -t csaf:local .
 New-Item -ItemType Directory -Force out | Out-Null
 foreach ($cloud in 'aws', 'azure', 'gcp', 'k8s') {
-  docker run --rm --read-only --cap-drop ALL --tmpfs /tmp -v "${PWD}/out:/work/out" csaf:local --self-check --cloud $cloud --output-dir /work/out
+  docker run --rm --read-only --cap-drop ALL --tmpfs /tmp --user "$(id -u):$(id -g)" -v "${PWD}/out:/work/out" csaf:local --self-check --cloud $cloud --output-dir /work/out
 }
 ```
+
+On a Linux host, `--user` aligns the container process with the host directory
+owner so the non-root image can write reports. Omit it on Docker Desktop if
+your file-sharing configuration does not support Unix UID/GID mapping.
 
 The self-check deliberately returns exit code `2` because its synthetic
 posture includes one `NotTested` control. It is a successful certification run

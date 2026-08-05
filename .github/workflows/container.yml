@@ -24,6 +24,7 @@ jobs:
           for cloud in aws azure gcp k8s; do
             set +e
             docker run --rm --read-only --cap-drop ALL --tmpfs /tmp \
+              --user "$(id -u):$(id -g)" \
               --volume "$PWD/container-out:/work/out" \
               csaf:ci --self-check --cloud "$cloud" --output-dir /work/out --log-level ERROR
             code=$?
