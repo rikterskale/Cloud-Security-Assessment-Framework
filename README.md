@@ -304,7 +304,7 @@ For arguments, output locations, and exit behavior, see the
 |---|---|
 | `csaf-campaign` | Create, sign, verify, or run a replayable assessment **campaign** (reproducible runs) |
 | `csaf-attest` | Sign (`sign`) and verify (`verify`) an **attested evidence bundle** over a run's manifest |
-| `csaf-drift` | Compare two runs' `findings.json` and alert on **new/resolved** findings (exit non-zero to gate cron/CI) |
+| `csaf-drift` | Compare two runs' `findings.json`, write optional time-series history, and send opt-in HMAC/Bearer-authenticated SIEM alerts |
 | `csaf-aggregate` | Roll several run directories into one **org-wide** report with cross-scope control failures |
 | `csaf-detection-pack` | Build a **purple-team** detection-coverage pack (benign, defender-focused validation markers) |
 | `csaf-attack-path` | Read-only IAM **privilege-escalation path** analysis over a provided IAM snapshot |

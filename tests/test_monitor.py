@@ -7,7 +7,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from csaf.monitor import compute_drift, main, should_alert
+from csaf.monitor import append_history, compute_drift, deliver_webhook, main, should_alert
 
 
 def rec(fid, sev="HIGH", control="CIS-1.1", resource="r"):
@@ -41,6 +41,15 @@ class TestDrift(unittest.TestCase):
     def test_should_alert_rejects_bad_mode(self):
         with self.assertRaises(ValueError):
             should_alert(compute_drift([], []), "bogus")
+
+    def test_history_and_hmac_dry_run_are_network_free(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            history = Path(tmp) / "history.jsonl"
+            append_history(history, compute_drift([], []))
+            self.assertEqual(json.loads(history.read_text())["counts"]["new"], 0)
+            result = deliver_webhook("https://example.invalid", {"ok": True}, auth="hmac", secret=b"key", dry_run=True)
+            self.assertFalse(result["delivered"])
+            self.assertEqual(result["headers"]["X-CSAF-Signature-256"], "<redacted>")
 
 
 class TestDriftCli(unittest.TestCase):

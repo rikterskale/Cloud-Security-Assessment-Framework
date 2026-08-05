@@ -37,7 +37,20 @@ bundle and every artifact hash with:
 
 Verification exits non-zero if the attestation or any artifact hash fails.
 
+`csaf-attest external-sign RUN_DIR [--cosign cosign]`
+
+Writes `run-sbom.cdx.json`, an evidence descriptor, and a keyless Cosign
+signature/bundle. This is opt-in and may use Sigstore only when invoked.
+Third parties verify without the HMAC key:
+
+`csaf-attest external-verify RUN_DIR --certificate-identity ID --certificate-oidc-issuer ISSUER`
+
 `csaf-drift --previous OLD/findings.json --current NEW/findings.json [--alert-on new|resolved|any|none] [--out drift.json] [--quiet]`
+
+Add `--history drift-history.jsonl` to append a timestamped time-series record.
+An explicit SIEM webhook supports HMAC (default) or bearer authentication:
+`--webhook-url URL --webhook-secret-file SECRET [--webhook-auth hmac|bearer]`.
+Use `--webhook-dry-run` to inspect redacted delivery metadata without a network call.
 
 Compares two finding sets and prints counts for new, resolved, and persisted
 findings. It optionally writes the JSON report specified by `--out`. The

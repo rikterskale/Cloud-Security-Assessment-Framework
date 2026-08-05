@@ -18,8 +18,12 @@ when the alert condition is met, so it drops straight into cron or CI:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import sys
+import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .console import next_steps
@@ -83,6 +87,32 @@ def _load(path: str | Path) -> list[dict]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def append_history(path: str | Path, drift: dict) -> None:
+    """Append an immutable, line-oriented drift summary for time-series use."""
+    record = {
+        "observedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "counts": drift["counts"],
+        "highestNewSeverity": drift["highestNewSeverity"],
+    }
+    with open(path, "a", encoding="utf-8", newline="\n") as handle:
+        handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def deliver_webhook(url: str, payload: dict, *, auth: str, secret: bytes, dry_run: bool = False) -> dict:
+    """Deliver an explicit, minimal JSON alert using HMAC or bearer auth."""
+    body = json.dumps(payload, sort_keys=True).encode("utf-8")
+    headers = {"Content-Type": "application/json", "User-Agent": "CSAF-Drift-Monitor/1.0"}
+    if auth == "hmac":
+        headers["X-CSAF-Signature-256"] = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+    else:
+        headers["Authorization"] = "Bearer " + secret.decode("utf-8")
+    if dry_run:
+        return {"delivered": False, "headers": {key: "<redacted>" for key in headers}, "payload": payload}
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    with urllib.request.urlopen(request, timeout=10) as response:  # nosec B310 - explicit operator endpoint
+        return {"delivered": True, "status": response.status}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Compare two CSAF findings.json files and alert on drift (new/resolved findings)."
@@ -92,6 +122,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--alert-on", choices=["new", "resolved", "any", "none"], default="new")
     parser.add_argument("--out", default=None, help="Optional path to write the drift report JSON.")
     parser.add_argument("--quiet", action="store_true", help="Suppress the human-readable summary.")
+    parser.add_argument("--history", default=None, help="Append a timestamped summary to this JSONL time-series file.")
+    parser.add_argument(
+        "--webhook-url", default=None, help="Explicit SIEM webhook URL; no network call is made without this flag."
+    )
+    parser.add_argument("--webhook-auth", choices=["hmac", "bearer"], default="hmac")
+    parser.add_argument(
+        "--webhook-secret-file", default=None, help="HMAC key or bearer token file (required with --webhook-url)."
+    )
+    parser.add_argument(
+        "--webhook-dry-run", action="store_true", help="Print redacted webhook metadata without sending it."
+    )
     args = parser.parse_args(argv)
 
     drift = compute_drift(_load(args.previous), _load(args.current))
@@ -99,6 +140,27 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.out).write_text(json.dumps(drift, indent=2) + "\n", encoding="utf-8")
 
     alert = should_alert(drift, args.alert_on)
+    if args.history:
+        append_history(args.history, drift)
+    if args.webhook_url:
+        if not args.webhook_secret_file:
+            parser.error("--webhook-secret-file is required with --webhook-url")
+        secret = Path(args.webhook_secret_file).read_bytes().strip()
+        if not secret:
+            parser.error("--webhook-secret-file is empty")
+        delivery = deliver_webhook(
+            args.webhook_url,
+            {"event": "csaf.drift", "alert": alert, "alertOn": args.alert_on, "drift": drift},
+            auth=args.webhook_auth,
+            secret=secret,
+            dry_run=args.webhook_dry_run,
+        )
+        if not args.quiet:
+            print(
+                "[WEBHOOK] dry run; no request sent."
+                if args.webhook_dry_run
+                else f"[WEBHOOK] delivered (HTTP {delivery['status']})."
+            )
     if not args.quiet:
         counts = drift["counts"]
         print(f"Drift: {counts['new']} new, {counts['resolved']} resolved, {counts['persisted']} persisted.")

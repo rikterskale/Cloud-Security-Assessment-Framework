@@ -134,7 +134,30 @@ def main(argv: list[str] | None = None) -> int:
     verify_p.add_argument("run_dir", help="Path to a completed assessment run directory.")
     verify_p.add_argument("--key-file", required=True, help="Path to the shared-secret key file.")
 
+    external_sign_p = sub.add_parser("external-sign", help="Create a keyless Cosign signature and run SBOM.")
+    external_sign_p.add_argument("run_dir")
+    external_sign_p.add_argument("--cosign", default="cosign", help="Cosign executable (default: cosign).")
+    external_verify_p = sub.add_parser("external-verify", help="Verify a Cosign-signed bundle without an HMAC key.")
+    external_verify_p.add_argument("run_dir")
+    external_verify_p.add_argument("--certificate-identity", required=True)
+    external_verify_p.add_argument("--certificate-oidc-issuer", required=True)
+    external_verify_p.add_argument("--cosign", default="cosign", help="Cosign executable (default: cosign).")
+
     args = parser.parse_args(argv)
+    if args.command.startswith("external-"):
+        from .external_verification import external_sign, external_verify
+
+        if args.command == "external-sign":
+            paths = external_sign(args.run_dir, cosign=args.cosign)
+            print(f"[OK] Wrote external verification bundle: {paths['bundle']}")
+            return 0
+        ok, messages = external_verify(
+            args.run_dir, identity=args.certificate_identity, issuer=args.certificate_oidc_issuer, cosign=args.cosign
+        )
+        for message in messages:
+            print(("[OK] " if ok else "[FAIL] ") + message)
+        return 0 if ok else 1
+
     key = _load_key(args.key_file)
 
     if args.command == "sign":
