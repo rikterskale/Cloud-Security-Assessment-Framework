@@ -563,7 +563,7 @@ out/
     └── evidence/                    # raw collector evidence, namespaced
 ```
 
-The current release writes 17 possible top-level files in the run directory;
+The current release writes 18 possible top-level files in the run directory;
 the `evidence/` directory may contain additional raw evidence files.
 
 Start with `coverage-report.csv` to confirm every selected control ran, then
@@ -627,8 +627,8 @@ an actor who can rewrite both.
 
 The suite (more than 400 tests, standard-library `unittest`, no cloud credentials and no
 provider SDKs required) is designed around the framework's safety invariants:
-every "never" in this README has a test asserting it. Line coverage is 94%
-overall (CI gates at >= 90%; see [Continuous integration](#continuous-integration)).
+every "never" in this README has a test asserting it. Line coverage is above
+the 90% gate enforced in CI (see [Continuous integration](#continuous-integration)).
 
 ```bash
 python3 -m unittest discover -s tests -v
@@ -706,7 +706,7 @@ permissions and these gates:
 - `pip-audit` dependency vulnerability audit
 - CycloneDX SBOM generation (`pip-audit --format cyclonedx-json`), uploaded as
   a build artifact
-- Python 3.10 / 3.12 / 3.14 unit-test matrix
+- Python 3.10 / 3.11 / 3.12 / 3.13 / 3.14 unit-test matrix
 - Line-coverage gate: `coverage report --fail-under=90` over `csaf/` and the CLI
 - Dependency preflight and offline self-check report generation
 - Hash-locked dependency installation

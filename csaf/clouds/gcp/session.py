@@ -4,8 +4,8 @@ Talks to the Google Cloud REST APIs directly using Application Default
 Credentials from ``google-auth`` (an optional dependency, imported lazily).
 The guardrail is structural: every request funnels through
 :meth:`GcpSession.request`, which permits GET plus an explicit allow-list of
-read-only POST endpoints (``:getIamPolicy`` / ``:testIamPermissions``), which
-Google exposes as POST but which only read state. This sits on top of the
+read-only POST endpoints (``:getIamPolicy`` / ``:testIamPermissions`` /
+``:searchAll``), which Google exposes as POST but which only read state. This sits on top of the
 read-only IAM role (e.g. ``roles/viewer``) an operator is expected to use.
 """
 

@@ -21,4 +21,4 @@ they do not establish that the same results hold for the current checkout.
 | [gcp.md](gcp.md) | GCP | 76 / 76 passed | 5 findings, risk 45.0 (HIGH), coverage 18/19 |
 | [k8s.md](k8s.md) | Kubernetes | 26 / 26 passed | 4 findings, risk 55.0 (HIGH), coverage 4/5 |
 
-These are point-in-time snapshots, not a substitute for re-running the suite (`python3 -m unittest discover -s tests`) or the self-check (`python3 invoke_assessment.py --self-check --cloud <cloud>`) yourself against the current codebase. The runner currently writes 17 possible top-level files plus the `evidence/` directory; older report text that calls this a “14-artifact” output is historical wording.
+These are point-in-time snapshots, not a substitute for re-running the suite (`python3 -m unittest discover -s tests`) or the self-check (`python3 invoke_assessment.py --self-check --cloud <cloud>`) yourself against the current codebase. The runner currently writes 18 possible top-level files plus the `evidence/` directory; older report text that calls this a “14-artifact” output is historical wording.
