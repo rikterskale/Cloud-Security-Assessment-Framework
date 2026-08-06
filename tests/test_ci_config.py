@@ -39,7 +39,7 @@ class TestCIConfig(unittest.TestCase):
             "actionlint",
             "shellcheck",
             "generate_completions.py",
-            "csaf-lint-catalog",
+            "csaf.authoring",
             "dependency-review-action",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")

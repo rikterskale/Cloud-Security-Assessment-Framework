@@ -27,7 +27,17 @@ def main() -> None:
         default = action.default if action.default is not None else "none"
         help_text = (action.help or "").replace("|", "\\|").replace("\n", " ")
         lines.append(f"| {option} | `{default}` | {help_text} |")
-    lines.extend(["", "## Safe first steps", "", "1. Run `python invoke_assessment.py --preflight`.", "2. Run `python invoke_assessment.py --plan --cloud aws --profile Assessment`.", "3. Run `python invoke_assessment.py --tutorial --output-dir tutorial-output`.", "4. Remove only tutorial output with `--cleanup-tutorial --output-dir tutorial-output`."])
+    lines.extend(
+        [
+            "",
+            "## Safe first steps",
+            "",
+            "1. Run `python invoke_assessment.py --preflight`.",
+            "2. Run `python invoke_assessment.py --plan --cloud aws --profile Assessment`.",
+            "3. Run `python invoke_assessment.py --tutorial --output-dir tutorial-output`.",
+            "4. Remove only tutorial output with `--cleanup-tutorial --output-dir tutorial-output`.",
+        ]
+    )
     (ROOT / "docs" / "CLI_REFERENCE.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
