@@ -39,6 +39,7 @@ class Engagement:
     stop_conditions: list[str] = field(default_factory=list)
     prohibited_actions: list[str] = field(default_factory=list)
     active_validation_approved: bool = False
+    secret_discovery_approved: bool = False
     attestations: dict = field(default_factory=dict)
     signature: str | None = None
     configured: bool = False
@@ -66,6 +67,7 @@ class Engagement:
             stop_conditions=data.get("stopConditions", []),
             prohibited_actions=data.get("prohibitedActions", []),
             active_validation_approved=bool(data.get("activeValidationApproved", False)),
+            secret_discovery_approved=bool(data.get("secretDiscoveryApproved", False)),
             attestations=data.get("attestations", {}),
             signature=signature,
             configured=True,
@@ -152,3 +154,17 @@ class Engagement:
         if not self.verify_signature(signing_key):
             return False, "Engagement signature verification failed; the file may have been altered after signing."
         return True, "Active validation approved and within the authorized window."
+
+    def authorize_secret_discovery(self, signing_key: bytes | None = None) -> tuple[bool, str]:
+        """Authorize the metadata-only Azure secret-discovery workflow.
+
+        This is intentionally a separate affirmative approval from general
+        validation. The workflow inventories locations that can contain
+        secrets, but never requests or persists secret values.
+        """
+        allowed, reason = self.authorize_profile("Validation", signing_key)
+        if not allowed:
+            return False, reason
+        if not self.secret_discovery_approved:
+            return False, "Engagement does not approve secret discovery (secretDiscoveryApproved=false)."
+        return True, "Signed engagement explicitly approves metadata-only secret discovery."

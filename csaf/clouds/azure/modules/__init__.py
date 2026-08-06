@@ -9,6 +9,7 @@ from .keyvault import KeyVaultModule
 from .monitor import MonitorModule
 from .network import NetworkModule
 from .sql import SqlModule
+from .secret_discovery import SecretDiscoveryModule
 from .storage import StorageModule
 
 # Built-in modules, keyed by catalog ``module``. Third-party distributions can
@@ -22,6 +23,7 @@ _BUILTIN_MODULE_REGISTRY = {
     "monitor": MonitorModule,
     "sql": SqlModule,
     "keyvault": KeyVaultModule,
+    "secret_discovery": SecretDiscoveryModule,
 }
 
 MODULE_REGISTRY = discover_plugin_modules("csaf.modules.azure", _BUILTIN_MODULE_REGISTRY)

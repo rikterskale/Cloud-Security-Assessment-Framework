@@ -190,6 +190,19 @@
       "references": ["https://learn.microsoft.com/azure/key-vault/general/soft-delete-overview"]
     },
     {
+      "id": "CSAF-AZ-SEC-001",
+      "title": "Potential Azure secret-bearing resource locations are inventoried",
+      "category": "Secrets",
+      "module": "secret_discovery",
+      "check": "secret_bearing_locations",
+      "defaultSeverity": "LOW",
+      "expectedState": "Potential secret-bearing locations are inventoried under explicit authorization; secret values are never retrieved or persisted.",
+      "profiles": ["Validation"],
+      "validationOnly": true,
+      "mappings": ["NIST-800-53:CM-8"],
+      "references": ["https://trustedsec.com/blog/the-art-of-hunting-azure-cloud-secrets"]
+    },
+    {
       "id": "CSAF-AZ-OPS-001",
       "title": "Subscription break-glass procedure is documented",
       "category": "Operations",

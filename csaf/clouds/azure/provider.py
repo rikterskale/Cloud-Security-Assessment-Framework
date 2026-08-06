@@ -20,13 +20,14 @@ from .modules import MODULE_REGISTRY
 
 
 class AzureProvider:
-    def __init__(self, session, baseline, evidence, logger, engagement, profile: str):
+    def __init__(self, session, baseline, evidence, logger, engagement, profile: str, secret_discovery_enabled: bool = False):
         self.session = session
         self.baseline = baseline
         self.evidence = evidence
         self.logger = logger
         self.engagement = engagement
         self.profile = profile
+        self.secret_discovery_enabled = secret_discovery_enabled
         self.account_id = session.subscription_id
         self._module_instances: dict[str, object] = {}
         self._cache: dict = {}
@@ -46,6 +47,7 @@ class AzureProvider:
             evidence=self.evidence,
             logger=self.logger,
             engagement=self.engagement,
+            secret_discovery_enabled=self.secret_discovery_enabled,
             session=self.session,
             cache=self._cache,
         )

@@ -22,6 +22,10 @@
     "stopConditions": { "type": "array", "items": { "type": "string" } },
     "prohibitedActions": { "type": "array", "items": { "type": "string" } },
     "activeValidationApproved": { "type": "boolean" },
+    "secretDiscoveryApproved": {
+      "type": "boolean",
+      "description": "Explicit approval for metadata-only Azure secret discovery. Raw secret retrieval is never authorized."
+    },
     "signature": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "attestations": {
       "type": "object",

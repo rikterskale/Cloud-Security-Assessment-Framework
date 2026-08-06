@@ -218,6 +218,18 @@ python3 invoke_assessment.py --cloud azure \
 If the credentials see exactly one enabled subscription, `--subscription` can
 be omitted.
 
+Azure Validation can also inventory *locations* that commonly hold secrets
+(App Service/Function Apps, Automation Accounts, and Key Vaults), without
+retrieving values or writing secret evidence. It requires a signed engagement
+that sets `secretDiscoveryApproved` to `true` and the explicit CLI flag:
+
+```bash
+python3 invoke_assessment.py --cloud azure --profile Validation \
+  --subscription 00000000-0000-0000-0000-000000000000 \
+  --engagement engagement.json --engagement-key-file engagement.key \
+  --allow-secret-discovery --output-dir out
+```
+
 **GCP** — authenticates via Application Default Credentials
 (`gcloud auth application-default login` or a service-account key) with a
 read-only role such as `roles/viewer`:
@@ -266,6 +278,7 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--baseline` | the selected cloud's CIS baseline | Threshold/override baseline path |
 | `--engagement` | none | Signed engagement authorization file (required for active profiles) |
 | `--engagement-key-file` | none | Shared-secret verification key (required for active profiles; see [`sign_engagement.py`](sign_engagement.py)) |
+| `--allow-secret-discovery` | off | Azure Validation only: inventory potential secret-bearing locations with an explicitly approving signed engagement; never retrieves or stores values |
 | `--previous-findings` | none | Prior run's `findings.json` to diff against (adds `DeltaStatus` + `findings-resolved.json`) |
 | `--aws-profile` | none | Named AWS credentials profile (read-only) |
 | `--subscription` | discovered if unambiguous | Azure subscription ID |
@@ -470,7 +483,7 @@ and/or MITRE ATT&CK references in its catalog under [`controls/`](controls/).
 | Secrets | Secrets Manager rotation enabled, customer-managed KMS encryption |
 | Operations | Break-glass procedure (operator attestation) |
 
-### Azure — 16 controls ([`control-catalog-azure.json`](controls/control-catalog-azure.json))
+### Azure — 17 controls ([`control-catalog-azure.json`](controls/control-catalog-azure.json))
 
 | Category | Example controls |
 |---|---|

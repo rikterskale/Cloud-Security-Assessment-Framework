@@ -122,6 +122,24 @@ class TestEngagementSignatureAuthorization(unittest.TestCase):
     def test_default_engagement_never_verifies(self):
         self.assertFalse(Engagement().verify_signature(b"any-key"))
 
+    def test_secret_discovery_requires_its_own_signed_approval(self):
+        key = b"shared-secret"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "engagement.json"
+            data = _write_engagement(path, cloud="Azure", authorizedAccounts=["sub-1"])
+            data["signature"] = sign(data, key)
+            path.write_text(json.dumps(data), encoding="utf-8")
+            eng = Engagement.load(path)
+            allowed, reason = eng.authorize_secret_discovery(key)
+            self.assertFalse(allowed)
+            self.assertIn("secretDiscoveryApproved", reason)
+
+            data["secretDiscoveryApproved"] = True
+            data["signature"] = sign({k: v for k, v in data.items() if k != "signature"}, key)
+            path.write_text(json.dumps(data), encoding="utf-8")
+            allowed, reason = Engagement.load(path).authorize_secret_discovery(key)
+            self.assertTrue(allowed, reason)
+
 
 class TestEngagementScopeAuthorization(unittest.TestCase):
     def test_readonly_without_engagement_remains_unscoped(self):

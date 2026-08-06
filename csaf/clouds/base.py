@@ -31,6 +31,7 @@ class CheckContext:
     evidence: "EvidenceStore"
     logger: "AssessmentLogger"
     engagement: "Engagement"
+    secret_discovery_enabled: bool = False
     session: object = None
     cache: dict = field(default_factory=dict)
 

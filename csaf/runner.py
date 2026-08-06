@@ -80,6 +80,7 @@ class RunConfig:
     baseline_path: str | None = None
     engagement_path: str | None = None
     engagement_key_path: str | None = None
+    allow_secret_discovery: bool = False
     previous_findings_path: str | None = None
     output_dir: str = "csaf-output"
     aws_profile: str | None = None
@@ -185,6 +186,19 @@ def run_assessment(config: RunConfig) -> RunResult:
             logger.close()
             return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized profile: {reason}")
 
+        if config.allow_secret_discovery:
+            if config.cloud != "azure" or config.profile != "Validation":
+                message = "--allow-secret-discovery is supported only for the Azure Validation profile."
+                logger.error("secret-discovery", message)
+                logger.close()
+                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
+            discovery_allowed, discovery_reason = engagement.authorize_secret_discovery(signing_key)
+            logger.info("secret-discovery", f"Authorization: {discovery_reason}")
+            if not discovery_allowed:
+                logger.error("secret-discovery", f"Not authorized: {discovery_reason}")
+                logger.close()
+                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized secret discovery: {discovery_reason}")
+
         active_profile = config.profile in ("Validation", "AdversarySimulation")
         requested_account = {
             "azure": config.subscription_id,
@@ -282,6 +296,7 @@ def run_assessment(config: RunConfig) -> RunResult:
                 session = ArmSession(subscription_id=requested_account)
                 account_id = session.subscription_id
                 scope_note = f"subscription {account_id}"
+                provider_kwargs["secret_discovery_enabled"] = config.allow_secret_discovery
             elif config.cloud == "gcp":
                 from .clouds.gcp.provider import GcpProvider as Provider
                 from .clouds.gcp.session import GcpSession
@@ -337,6 +352,7 @@ def run_assessment(config: RunConfig) -> RunResult:
             "sourceRevision": revision,
             "engagementId": engagement.engagement_id,
             "selfCheck": config.self_check,
+            "secretDiscovery": config.allow_secret_discovery,
         }
 
         if delta is not None:

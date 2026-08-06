@@ -130,6 +130,14 @@ def build_parser() -> argparse.ArgumentParser:
         "Validation/AdversarySimulation (see sign_engagement.py).",
     )
     parser.add_argument(
+        "--allow-secret-discovery",
+        action="store_true",
+        help=(
+            "Azure Validation only: inventory potential secret-bearing resource locations. Requires a signed "
+            "engagement with secretDiscoveryApproved=true; never retrieves or stores secret values."
+        ),
+    )
+    parser.add_argument(
         "--previous-findings",
         default=None,
         help="Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json).",
@@ -298,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         baseline_path=args.baseline,
         engagement_path=args.engagement,
         engagement_key_path=args.engagement_key_file,
+        allow_secret_discovery=args.allow_secret_discovery,
         previous_findings_path=args.previous_findings,
         output_dir=args.output_dir,
         aws_profile=args.aws_profile,
