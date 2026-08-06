@@ -3,7 +3,7 @@
 Built-in modules are always the base registry for a cloud. Additional check
 modules can be contributed by any installed distribution that declares an
 entry point in the matching group (``csaf.modules.aws``, ``csaf.modules.azure``,
-``csaf.modules.gcp``) — e.g. a ``pyproject.toml`` containing::
+``csaf.modules.gcp``, ``csaf.modules.k8s``) — e.g. a ``pyproject.toml`` containing::
 
     [project.entry-points."csaf.modules.aws"]
     my_service = "my_csaf_extra.aws:MyServiceModule"
