@@ -162,7 +162,7 @@ Remove only that tutorial output with
 Use the offline control explorer before an assessment to see its intent, expected state, framework mappings, and remediation snippet:
 
 ```bash
-python3 invoke_assessment.py --cloud aws --explain AWS-S3-001
+python3 invoke_assessment.py --cloud aws --explain CSAF-AWS-S3-001
 ```
 
 ### Shell completion
@@ -283,12 +283,13 @@ matching [`schemas/engagement.schema.json`](schemas/engagement.schema.json).
 | `--plan` | off | Deterministic no-network control and scope preview |
 | `--tutorial` | off | Run the safe offline fixture tutorial and verify `manifest.json` |
 | `--cleanup-tutorial` | off | Remove only a tutorial output directory explicitly named by `--output-dir` |
-| `--no-color` | off | Plain terminal output without color or decorative styling |
+| `--no-color` | off | Plain terminal output without color or decorative styling (color is also disabled when the `NO_COLOR` environment variable is set) |
 | `--color` | off | Force ANSI color even when output is redirected or captured |
 | `--completion` | none | Print generated Bash, Zsh, or PowerShell completion and exit |
 | `--output-format` | `text` | Format preflight/plan output as `text` or `json` |
 | `--explain` | none | Print a control's intent, expected state, mappings, and remediation (offline), then exit |
 | `--help` | off | Show the CLI help and exit |
+| `--version` | off | Show the CSAF version (`CSAF v<version>`) and exit |
 
 ### Companion commands
 
@@ -403,8 +404,10 @@ Key components:
 
 - **`csaf/model.py`** — controlled vocabularies (statuses, severities,
   confidences), `ControlResult`, `Finding`, deterministic finding IDs, and the
-  `finding_from_result` normalisation (`Review` findings are floored at
-  `MEDIUM` because an unconfirmed weakness is not dismissible).
+  `finding_from_result` normalisation (a finding whose severity is `INFO` is
+  raised to `MEDIUM` — applied to both `Fail` and `Review` results — because a
+  surfaced weakness is not dismissible as merely informational; severities of
+  `LOW` and above are kept as-is).
 - **`csaf/clouds/base.py`** — the module dispatcher. A check may return one
   result, a list of per-resource results, or `None`; anything it raises becomes
   a single `Error` result. `Pass`/`NotApplicable`/`NotTested` results are

@@ -168,8 +168,9 @@ class Finding:
 def finding_from_result(result: ControlResult, remediation: str) -> Finding:
     """Build a Finding from a Fail/Review ControlResult.
 
-    Review results are normalised to MEDIUM at minimum because the weakness is
-    unconfirmed but not dismissible.
+    A result whose severity is not a valid finding severity (i.e. ``INFO``) is
+    normalised up to ``MEDIUM`` because a surfaced weakness is not dismissible
+    as merely informational. Severities of ``LOW`` and above are kept as-is.
     """
     severity = result.severity if result.severity in FINDING_RISK_SCORE else "MEDIUM"
     verb = "does not meet" if result.status == "Fail" else "requires manual review against"
