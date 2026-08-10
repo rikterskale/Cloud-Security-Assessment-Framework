@@ -68,8 +68,8 @@ class TestCIConfig(unittest.TestCase):
     def test_codeql_scans_pushes_pull_requests_and_the_default_branch_weekly(self):
         text = CODEQL.read_text(encoding="utf-8")
         for token in [
-            "github/codeql-action/init@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e",
-            "github/codeql-action/analyze@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e",
+            "github/codeql-action/init@24c7eb380a2dc368f2d129e4c65e51d172983a1e",
+            "github/codeql-action/analyze@24c7eb380a2dc368f2d129e4c65e51d172983a1e",
             "security-and-quality",
             "security-events: write",
             "cron:",

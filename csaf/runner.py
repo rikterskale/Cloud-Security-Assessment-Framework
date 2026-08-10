@@ -197,7 +197,9 @@ def run_assessment(config: RunConfig) -> RunResult:
             if not discovery_allowed:
                 logger.error("secret-discovery", f"Not authorized: {discovery_reason}")
                 logger.close()
-                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized secret discovery: {discovery_reason}")
+                return RunResult(
+                    EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized secret discovery: {discovery_reason}"
+                )
 
         active_profile = config.profile in ("Validation", "AdversarySimulation")
         requested_account = {

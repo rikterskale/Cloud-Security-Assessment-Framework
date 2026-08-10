@@ -11,7 +11,7 @@
 | `--baseline` | `none` | Path to the baseline thresholds file (default: the selected cloud's CIS baseline). |
 | `--engagement` | `none` | Path to the signed engagement authorization file (required for active profiles). |
 | `--engagement-key-file` | `none` | Path to the shared-secret key used to verify the signed engagement; required for Validation/AdversarySimulation (see sign_engagement.py). |
-| `--allow-secret-discovery` | `false` | Azure Validation only: metadata-only inventory of potential secret-bearing locations. Requires a signed engagement with `secretDiscoveryApproved: true`; values are never retrieved or stored. |
+| `--allow-secret-discovery` | `False` | Azure Validation only: inventory potential secret-bearing resource locations. Requires a signed engagement with secretDiscoveryApproved=true; never retrieves or stores secret values. |
 | `--previous-findings` | `none` | Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json). |
 | `--aws-profile` | `none` | Named AWS credentials profile to use (read-only). |
 | `--subscription` | `none` | Azure subscription ID to assess (default: discovered if unambiguous). |

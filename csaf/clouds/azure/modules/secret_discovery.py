@@ -32,11 +32,18 @@ class SecretDiscoveryModule(AssessmentModule):
         locations = []
         for path, api_version, resource_type, classifier in (
             (f"{subscription}/providers/Microsoft.Web/sites", API_WEB, "app-service", self._site_type),
-            (f"{subscription}/providers/Microsoft.Automation/automationAccounts", API_AUTOMATION, "automation-account", None),
+            (
+                f"{subscription}/providers/Microsoft.Automation/automationAccounts",
+                API_AUTOMATION,
+                "automation-account",
+                None,
+            ),
             (f"{subscription}/providers/Microsoft.KeyVault/vaults", API_KEYVAULT, "key-vault", None),
         ):
             for resource in arm.get_value(path, api_version):
-                locations.append((classifier(resource) if classifier else resource_type, resource.get("name", "unknown")))
+                locations.append(
+                    (classifier(resource) if classifier else resource_type, resource.get("name", "unknown"))
+                )
 
         ctx.logger.info(
             self.name,

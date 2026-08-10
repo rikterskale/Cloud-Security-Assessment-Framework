@@ -8,8 +8,8 @@ from .identity import IdentityModule
 from .keyvault import KeyVaultModule
 from .monitor import MonitorModule
 from .network import NetworkModule
-from .sql import SqlModule
 from .secret_discovery import SecretDiscoveryModule
+from .sql import SqlModule
 from .storage import StorageModule
 
 # Built-in modules, keyed by catalog ``module``. Third-party distributions can

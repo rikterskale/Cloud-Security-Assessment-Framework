@@ -20,7 +20,9 @@ from .modules import MODULE_REGISTRY
 
 
 class AzureProvider:
-    def __init__(self, session, baseline, evidence, logger, engagement, profile: str, secret_discovery_enabled: bool = False):
+    def __init__(
+        self, session, baseline, evidence, logger, engagement, profile: str, secret_discovery_enabled: bool = False
+    ):
         self.session = session
         self.baseline = baseline
         self.evidence = evidence

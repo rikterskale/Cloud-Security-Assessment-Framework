@@ -50,6 +50,7 @@ REMEDIATION = {
     "CSAF-AZ-SQL-001": "Enable auditing on every Azure SQL server with retention to a storage account or Log Analytics.",
     "CSAF-AZ-SQL-002": "Disable public network access on Azure SQL servers and connect via private endpoints.",
     "CSAF-AZ-KV-001": "Enable soft delete and purge protection on every key vault.",
+    "CSAF-AZ-SEC-001": "Review eligible Azure resource metadata for secret-bearing locations and remove or restrict unnecessary secret material.",
     "CSAF-AZ-OPS-001": "Document and periodically test a break-glass procedure for Global Administrator and Owner access.",
     # --- GCP -----------------------------------------------------------------
     "CSAF-GCP-IAM-001": "Replace owner/editor/admin bindings on service accounts with least-privilege predefined roles.",
