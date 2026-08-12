@@ -1,5 +1,6 @@
 """Guard CI configuration invariants so security gates cannot silently vanish."""
 
+import re
 import unittest
 from pathlib import Path
 
@@ -60,21 +61,31 @@ class TestCIConfig(unittest.TestCase):
             "twine check",
             "cyclonedx-json",
             "SHA256SUMS",
-            "actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d",
             "gh release create",
         ]:
             self.assertIn(token, text)
+        self.assert_pinned_action(text, "actions/attest")
 
     def test_codeql_scans_pushes_pull_requests_and_the_default_branch_weekly(self):
         text = CODEQL.read_text(encoding="utf-8")
         for token in [
-            "github/codeql-action/init@24c7eb380a2dc368f2d129e4c65e51d172983a1e",
-            "github/codeql-action/analyze@24c7eb380a2dc368f2d129e4c65e51d172983a1e",
             "security-and-quality",
             "security-events: write",
             "cron:",
         ]:
             self.assertIn(token, text, f"CodeQL is missing required configuration: {token}")
+        self.assert_pinned_action(text, "github/codeql-action/init")
+        self.assert_pinned_action(text, "github/codeql-action/analyze")
+
+    def test_dependency_review_uses_a_pinned_action(self):
+        self.assert_pinned_action(self.text, "actions/dependency-review-action")
+
+    def assert_pinned_action(self, workflow_text, action):
+        self.assertRegex(
+            workflow_text,
+            rf"{re.escape(action)}@[0-9a-f]{{40}}\b",
+            f"{action} must use a full immutable commit SHA",
+        )
 
 
 if __name__ == "__main__":
