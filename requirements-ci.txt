@@ -1,7 +1,7 @@
-ruff>=0.5
+ruff>=0.16.3
 pip-audit>=2.7
 jsonschema>=4.20
-coverage>=7.4
+coverage>=7.15.4
 build>=1.2
 # build requires this on Windows; keep the shared lock installable there.
 colorama>=0.4.6; os_name == "nt"
