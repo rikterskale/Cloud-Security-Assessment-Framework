@@ -2,7 +2,8 @@
 
 Every user-facing failure should be a :class:`CsafError`. Unknown exceptions
 are wrapped, never swallowed. Cloud probes in :func:`probe_cloud_access` are
-read-only (STS GetCallerIdentity, ARM GET, GCP GET, Kubernetes read).
+read-only (STS, IAM summary, S3/EC2/CloudTrail list, ARM GET, GCP GET,
+Kubernetes read).
 """
 
 from __future__ import annotations
@@ -51,6 +52,45 @@ _EXTRA_INSTALL = {
     "k8s": "python -m pip install 'cloud-saf[k8s]'",
 }
 
+_CREDENTIAL_FIX = {
+    "aws": (
+        "aws sts get-caller-identity --profile YOUR_PROFILE\n"
+        "         Then: csaf-assess --preflight --live --cloud aws --aws-profile YOUR_PROFILE\n"
+        "         Setup playbook: csaf-assess --guide --cloud aws"
+    ),
+    "azure": (
+        "az login\n"
+        "         az account show\n"
+        "         Then: csaf-assess --preflight --live --cloud azure --subscription SUBSCRIPTION_ID\n"
+        "         Setup playbook: csaf-assess --guide --cloud azure"
+    ),
+    "gcp": (
+        "gcloud auth application-default login\n"
+        "         gcloud config set project PROJECT_ID\n"
+        "         Then: csaf-assess --preflight --live --cloud gcp --project PROJECT_ID\n"
+        "         Setup playbook: csaf-assess --guide --cloud gcp"
+    ),
+    "k8s": (
+        "kubectl config current-context\n"
+        "         kubectl get ns\n"
+        "         Then: csaf-assess --preflight --live --cloud k8s\n"
+        "         Setup playbook: csaf-assess --guide --cloud k8s"
+    ),
+}
+
+_AWS_API_PROBES = (
+    ("iam", "GetAccountSummary", lambda c: c.get_account_summary()),
+    ("s3", "ListBuckets", lambda c: c.list_buckets()),
+    ("ec2", "DescribeRegions", lambda c: c.describe_regions()),
+    ("cloudtrail", "DescribeTrails", lambda c: c.describe_trails()),
+    ("config", "DescribeConfigurationRecorders", lambda c: c.describe_configuration_recorders()),
+    ("guardduty", "ListDetectors", lambda c: c.list_detectors()),
+    ("securityhub", "DescribeHub", lambda c: c.describe_hub()),
+    ("kms", "ListKeys", lambda c: c.list_keys(Limit=1)),
+    ("rds", "DescribeDBInstances", lambda c: c.describe_db_instances()),
+    ("secretsmanager", "ListSecrets", lambda c: c.list_secrets(MaxResults=1)),
+)
+
 
 @dataclass(frozen=True)
 class CsafError:
@@ -79,7 +119,7 @@ def explain_exception(exc: BaseException) -> tuple[str, str]:
     return summary, err.fix
 
 
-def from_exception(exc: BaseException, *, resource: str = "") -> CsafError:
+def from_exception(exc: BaseException, *, resource: str = "", cloud: str | None = None) -> CsafError:
     """Map an exception to a structured error. Never invent a mutating fix."""
     name = type(exc).__name__
     message = str(exc)
@@ -98,17 +138,23 @@ def from_exception(exc: BaseException, *, resource: str = "") -> CsafError:
         return CsafError(ERROR_CODES["dependency"], cause, missing or str(target), fix)
 
     if any(marker in name for marker in _CREDENTIAL_MARKERS) or "credential" in message.lower():
+        key = cloud if cloud in _CREDENTIAL_FIX else ""
+        if not key:
+            for candidate, extra in (("boto", "aws"), ("azure", "azure"), ("google", "gcp"), ("kube", "k8s")):
+                if candidate in message.lower() or candidate in str(target).lower():
+                    key = extra
+                    break
+        fallback = (
+            _CREDENTIAL_FIX["aws"]
+            + "\n         (or --cloud azure|gcp|k8s)\n"
+            + "         Tip: run with --self-check to confirm the tool works with no cloud at all."
+        )
+        fix = _CREDENTIAL_FIX.get(key, fallback)
         return CsafError(
             ERROR_CODES["credentials"],
             "The cloud provider could not authenticate with the configured identity.",
             str(target),
-            "AWS: aws sts get-caller-identity --profile YOUR_PROFILE\n"
-            "         Azure: az login\n"
-            "         GCP: gcloud auth application-default login\n"
-            "         Kubernetes: kubectl config current-context\n"
-            "         Then: csaf-assess --preflight --live --cloud CLOUD\n"
-            "         Setup playbook: csaf-assess --guide --cloud CLOUD\n"
-            "         Tip: run with --self-check to confirm the tool works with no cloud at all.",
+            fix,
         )
 
     if isinstance(exc, FileNotFoundError):
@@ -145,8 +191,9 @@ def from_exception(exc: BaseException, *, resource: str = "") -> CsafError:
             f"Read API denied ({aws_code or name}): {message}",
             str(target),
             "Attach the AWS managed policy arn:aws:iam::aws:policy/SecurityAudit to this principal "
-            "(or Azure Reader + Security Reader / GCP roles/viewer / Kubernetes view), "
-            "then: csaf-assess --preflight --live",
+            "(or Azure Reader + Security Reader / GCP roles/viewer / Kubernetes view). "
+            "Playbook: csaf-assess --guide --cloud CLOUD\n"
+            "         Then: csaf-assess --preflight --live",
         )
 
     return CsafError(
@@ -185,22 +232,21 @@ def probe_cloud_access(
     try:
         return probes[cloud]()
     except Exception as exc:
-        return [from_exception(exc, resource=cloud)]
+        return [from_exception(exc, resource=cloud, cloud=cloud)]
 
 
 def _probe_aws(profile: str | None) -> list[CsafError]:
-    errors: list[CsafError] = []
     try:
         import boto3
     except ImportError as exc:
-        return [from_exception(exc, resource="boto3")]
+        return [from_exception(exc, resource="boto3", cloud="aws")]
     session = boto3.Session(profile_name=profile)
     sts = session.client("sts")
     try:
         ident = sts.get_caller_identity()
     except Exception as exc:
         fix_profile = profile or "default"
-        err = from_exception(exc, resource=f"sts:GetCallerIdentity (profile {fix_profile})")
+        err = from_exception(exc, resource=f"sts:GetCallerIdentity (profile {fix_profile})", cloud="aws")
         return [
             CsafError(
                 err.code,
@@ -211,32 +257,35 @@ def _probe_aws(profile: str | None) -> list[CsafError]:
         ]
     arn = ident.get("Arn", "")
     account = ident.get("Account", "")
-    try:
-        session.client("iam").get_account_summary()
-    except Exception as exc:
-        errors.append(
-            CsafError(
-                ERROR_CODES["permission"],
-                f"Authenticated as {arn} but iam:GetAccountSummary was denied ({exc}).",
-                f"iam:GetAccountSummary (account {account})",
-                "aws iam simulate-principal-policy --policy-source-arn "
-                f"{arn} --action-names iam:GetAccountSummary iam:GenerateCredentialReport "
-                "iam:ListUsers s3:ListAllMyBuckets\n"
-                "         Then attach arn:aws:iam::aws:policy/SecurityAudit to this principal.",
-            )
+    errors: list[CsafError] = [
+        CsafError(
+            ERROR_CODES["ok"],
+            f"AWS identity ok: {arn} (account {account}).",
+            arn,
+            "csaf-assess --cloud aws --aws-profile "
+            + (profile or "default")
+            + " --regions us-east-1 --output-dir out",
+            blocking=False,
         )
-    if not errors:
-        errors.append(
-            CsafError(
-                ERROR_CODES["ok"],
-                f"AWS identity ok: {arn} (account {account}).",
-                arn,
-                "csaf-assess --cloud aws --aws-profile "
-                + (profile or "default")
-                + " --regions us-east-1 --output-dir out",
-                blocking=False,
+    ]
+    for service, action, call in _AWS_API_PROBES:
+        resource = f"{service}:{action} (account {account})"
+        try:
+            client = session.client(service)
+            call(client)
+            errors.append(CsafError(ERROR_CODES["ok"], f"{service}:{action} ok.", resource, "", blocking=False))
+        except Exception as exc:
+            errors.append(
+                CsafError(
+                    ERROR_CODES["permission"],
+                    f"Authenticated as {arn} but {service}:{action} was denied ({exc}).",
+                    resource,
+                    "aws iam simulate-principal-policy --policy-source-arn "
+                    f"{arn} --action-names {service}:{action}\n"
+                    "         Attach arn:aws:iam::aws:policy/SecurityAudit to this principal.\n"
+                    "         Playbook: csaf-assess --guide --cloud aws",
+                )
             )
-        )
     return errors
 
 
@@ -245,7 +294,7 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
         import requests
         from azure.identity import DefaultAzureCredential
     except ImportError as exc:
-        return [from_exception(exc, resource="azure.identity")]
+        return [from_exception(exc, resource="azure.identity", cloud="azure")]
     try:
         token = DefaultAzureCredential().get_token("https://management.azure.com/.default")
     except Exception as exc:
@@ -254,7 +303,7 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
                 ERROR_CODES["credentials"],
                 f"Azure DefaultAzureCredential failed: {exc}",
                 "https://management.azure.com/.default",
-                "az login\n         Then: az account show",
+                "az login\n         Then: az account show\n         Playbook: csaf-assess --guide --cloud azure",
             )
         ]
     headers = {"Authorization": f"Bearer {token.token}"}
@@ -266,8 +315,9 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
                 ERROR_CODES["permission"],
                 f"ARM GET /subscriptions returned HTTP {response.status_code}.",
                 url,
-                "az role assignment create --assignee $(az ad signed-in-user show --query id -o tsv) "
-                "--role Reader --scope /subscriptions/SUBSCRIPTION_ID",
+                "az account show\n"
+                "         Ask an Owner to grant Reader + Security Reader on the subscription.\n"
+                "         Playbook: csaf-assess --guide --cloud azure",
             )
         ]
     if response.status_code >= 400:
@@ -290,7 +340,7 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
             )
         ]
     target = subscription or (subs[0] if len(subs) == 1 else f"{len(subs)} subscriptions")
-    return [
+    errors = [
         CsafError(
             ERROR_CODES["ok"],
             f"Azure identity ok; visible scope: {target}.",
@@ -299,6 +349,26 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
             blocking=False,
         )
     ]
+    if subscription or (len(subs) == 1 and subs[0]):
+        sub_id = subscription or subs[0]
+        sec_url = (
+            f"https://management.azure.com/subscriptions/{sub_id}"
+            "/providers/Microsoft.Security/pricings?api-version=2022-03-01"
+        )
+        sec = requests.get(sec_url, headers=headers, timeout=30)
+        if sec.status_code in (401, 403):
+            errors.append(
+                CsafError(
+                    ERROR_CODES["permission"],
+                    f"ARM GET Defender pricing returned HTTP {sec.status_code}.",
+                    sec_url,
+                    "Grant Security Reader on the subscription in addition to Reader.\n"
+                    "         Playbook: csaf-assess --guide --cloud azure",
+                )
+            )
+        else:
+            errors.append(CsafError(ERROR_CODES["ok"], "Defender-for-Cloud read ok.", sec_url, "", blocking=False))
+    return errors
 
 
 def _probe_gcp(project: str | None) -> list[CsafError]:
@@ -306,7 +376,7 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
         import google.auth
         from google.auth.transport.requests import AuthorizedSession
     except ImportError as exc:
-        return [from_exception(exc, resource="google.auth")]
+        return [from_exception(exc, resource="google.auth", cloud="gcp")]
     try:
         credentials, default_project = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
     except Exception as exc:
@@ -315,7 +385,9 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
                 ERROR_CODES["credentials"],
                 f"GCP Application Default Credentials failed: {exc}",
                 "ADC",
-                "gcloud auth application-default login\n         gcloud config set project PROJECT_ID",
+                "gcloud auth application-default login\n"
+                "         gcloud config set project PROJECT_ID\n"
+                "         Playbook: csaf-assess --guide --cloud gcp",
             )
         ]
     project_id = project or default_project
@@ -337,8 +409,9 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
                 ERROR_CODES["permission"],
                 f"GET {url} returned HTTP {response.status_code}.",
                 project_id,
-                f"gcloud projects add-iam-policy-binding {project_id} "
-                "--member=user:YOU@example.com --role=roles/viewer",
+                f"gcloud projects describe {project_id}\n"
+                "         Grant roles/viewer on the project (Owner must do this).\n"
+                "         Playbook: csaf-assess --guide --cloud gcp",
             )
         ]
     if response.status_code >= 400:
@@ -365,7 +438,7 @@ def _probe_k8s(kubeconfig: str | None, context: str | None) -> list[CsafError]:
     try:
         from kubernetes import client, config
     except ImportError as exc:
-        return [from_exception(exc, resource="kubernetes")]
+        return [from_exception(exc, resource="kubernetes", cloud="k8s")]
     try:
         if kubeconfig:
             config.load_kube_config(config_file=kubeconfig, context=context)
@@ -378,11 +451,11 @@ def _probe_k8s(kubeconfig: str | None, context: str | None) -> list[CsafError]:
                 ERROR_CODES["credentials"],
                 f"Kubernetes API access failed: {exc}",
                 context or kubeconfig or "current-context",
-                "kubectl config current-context\n         kubectl get ns",
+                "kubectl config current-context\n         kubectl get ns\n         Playbook: csaf-assess --guide --cloud k8s",
             )
         ]
     git_version = getattr(version, "git_version", "?")
-    return [
+    errors = [
         CsafError(
             ERROR_CODES["ok"],
             f"Kubernetes identity ok ({git_version}).",
@@ -391,3 +464,17 @@ def _probe_k8s(kubeconfig: str | None, context: str | None) -> list[CsafError]:
             blocking=False,
         )
     ]
+    try:
+        client.CoreV1Api().list_namespace(limit=1)
+        errors.append(CsafError(ERROR_CODES["ok"], "list namespaces ok.", "namespaces", "", blocking=False))
+    except Exception as exc:
+        errors.append(
+            CsafError(
+                ERROR_CODES["permission"],
+                f"Kubernetes list namespaces failed: {exc}",
+                context or "current-context",
+                "Bind the built-in ClusterRole view (not cluster-admin).\n"
+                "         Playbook: csaf-assess --guide --cloud k8s",
+            )
+        )
+    return errors

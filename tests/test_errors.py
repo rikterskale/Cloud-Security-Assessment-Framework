@@ -81,7 +81,7 @@ class TestCloudProbes(unittest.TestCase):
             def __init__(self, profile_name=None):
                 self.profile_name = profile_name
 
-            def client(self, service):
+            def client(self, service, **kwargs):
                 client = unittest.mock.MagicMock()
                 if service == "sts":
                     client.get_caller_identity.return_value = {
@@ -104,7 +104,7 @@ class TestCloudProbes(unittest.TestCase):
             def __init__(self, profile_name=None):
                 pass
 
-            def client(self, service):
+            def client(self, service, **kwargs):
                 client = unittest.mock.MagicMock()
                 client.get_caller_identity.side_effect = RuntimeError("Unable to locate credentials")
                 return client
@@ -117,6 +117,32 @@ class TestCloudProbes(unittest.TestCase):
             errors = _probe_aws("missing")
         self.assertTrue(errors[0].blocking)
         self.assertIn("get-caller-identity", errors[0].fix)
+
+    def test_probe_aws_s3_denied_is_blocking(self):
+        class Session:
+            def __init__(self, profile_name=None):
+                pass
+
+            def client(self, service, **kwargs):
+                client = unittest.mock.MagicMock()
+                if service == "sts":
+                    client.get_caller_identity.return_value = {
+                        "Arn": "arn:aws:iam::123:user/audit",
+                        "Account": "123",
+                    }
+                elif service == "s3":
+                    client.list_buckets.side_effect = RuntimeError("AccessDenied")
+                return client
+
+        boto3 = unittest.mock.MagicMock()
+        boto3.Session.side_effect = Session
+        with patch.dict("sys.modules", {"boto3": boto3}):
+            from csaf.errors import _probe_aws
+
+            errors = _probe_aws("audit")
+        denied = [err for err in errors if err.blocking and "s3:ListBuckets" in err.resource]
+        self.assertTrue(denied)
+        self.assertIn("SecurityAudit", denied[0].fix)
 
     def test_probe_azure_login_failure(self):
         class Cred:

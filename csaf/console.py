@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
 
 _ANSI = {"red": "31", "green": "32", "yellow": "33", "blue": "34", "bold": "1"}
+_SEV_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+_RANKED_LIMIT = 8
 
 
 def use_color(no_color: bool = False) -> bool:
@@ -40,6 +43,7 @@ def findings_table(result, *, color: bool = False) -> str:
         label = f"{symbols[severity]} {severity:<9} {counts.get(severity, 0):>5}"
         rows.append("  " + style(label, shades[severity], enabled=color))
     out = Path(result.output_dir)
+    rows.extend(_ranked_finding_lines(out, color=color))
     rows.extend(
         [
             f"  Coverage    {coverage.get('Executed', '?')}/{coverage.get('SelectedControls', '?')} executed; "
@@ -51,6 +55,37 @@ def findings_table(result, *, color: bool = False) -> str:
         ]
     )
     return "\n".join(rows)
+
+
+def _ranked_finding_lines(out_dir: Path, *, color: bool) -> list[str]:
+    path = out_dir / "findings.json"
+    if not path.is_file():
+        return []
+    try:
+        findings = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(findings, list) or not findings:
+        return []
+    ordered = sorted(
+        findings,
+        key=lambda row: (_SEV_ORDER.get(str(row.get("Severity", "")), 9), -int(row.get("RiskScore") or 0)),
+    )
+    lines = ["  Ranked findings (CRITICAL first):"]
+    for finding in ordered[:_RANKED_LIMIT]:
+        severity = str(finding.get("Severity", "?"))
+        control = finding.get("ControlId", "?")
+        resource = finding.get("ResourceId") or finding.get("Title") or ""
+        remediation = str(finding.get("Remediation") or "").strip()
+        label = f"{severity:<9} {control}  {resource}".rstrip()
+        shade = {"CRITICAL": "red", "HIGH": "yellow"}.get(severity, "yellow")
+        lines.append("    " + style(label, shade, enabled=color))
+        if remediation:
+            lines.append(f"             {remediation}")
+    remaining = len(ordered) - min(len(ordered), _RANKED_LIMIT)
+    if remaining > 0:
+        lines.append(f"    ... {remaining} more in {path}")
+    return lines
 
 
 def next_steps(command: str, detail: str) -> str:

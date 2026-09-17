@@ -293,7 +293,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.cleanup_tutorial and not args.tutorial:
         output_path = Path(args.output_dir).resolve()
         if output_path.name not in {"csaf-output", "tutorial-output"}:
-            print("[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.")
+            print(
+                "[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.\n"
+                "    Resource: --output-dir\n"
+                "    Fix: csaf-assess --tutorial --cleanup-tutorial --output-dir tutorial-output"
+            )
             return 1
         if not output_path.exists():
             print(f"[TUTORIAL] Nothing to clean: {output_path}")
@@ -339,7 +343,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             plan = plan_assessment(args.cloud, args.profile, args.catalog, args.baseline)
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
-            print(f"[CSAF-E003] Could not build plan: {exc}\n    Fix: check --catalog and --baseline paths.")
+            print(
+                f"[CSAF-E003] Could not build plan: {exc}\n"
+                "    Resource: --catalog / --baseline\n"
+                "    Fix: check --catalog and --baseline paths."
+            )
             return 1
         print(json.dumps(plan, indent=2) if args.output_format == "json" else _format_plan(plan))
         return 0

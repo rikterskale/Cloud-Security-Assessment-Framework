@@ -49,34 +49,35 @@ CSAF supports **AWS, Azure, GCP, and Kubernetes** end-to-end.
 > **New to the terminal, Git, or Python? Start with the guide for your operating system: [Windows](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md).**
 > Each guide walks you from an unprepared computer to a verified first result, with troubleshooting, cleanup, and uninstall steps. Both assume no prior experience and start with the safe offline demo.
 
-**Your first successful run takes one command and needs no cloud account, credentials, or internet** — it uses synthetic data to prove the tool works end to end and writes a full set of reports:
+**Need:** Git, Python 3.10+, and network access once (to install locked dependencies). **No cloud account.**
+
+```bash
+git clone https://github.com/rikterskale/Cloud-Security-Assessment-Framework.git
+cd Cloud-Security-Assessment-Framework
+
+# Linux/macOS
+python3 scripts/install.py
+# Windows PowerShell
+py -3 scripts\install.py
+```
+
+That command creates `.venv`, installs `requirements-lock.txt`, runs local preflight, and executes `--self-check`. Expect `[INCOMPLETE]` and installer exit `0` (the demo's process exit `2` is mapped to success because one attestation control is intentionally untested).
+
+Then open `out/*/executive-summary.html`.
+
+Equivalent wrappers: `sh scripts/quickstart.sh` or `& .\scripts\quickstart.ps1`.
+
+If the virtualenv already exists and you only want the demo:
 
 ```bash
 python3 invoke_assessment.py --self-check --output-dir out
 ```
 
-Expect `[INCOMPLETE] Completed. ...` and exit code `2` — that is success for the demo (one control is intentionally left untested). Once that works, continue below to install properly and assess a real environment.
+Expect `[INCOMPLETE]` and exit code `2` — that is success for the demo (one control is intentionally left untested).
 
-Or bootstrap a source checkout in one command (creates `.venv`, installs locked dependencies, and runs the same self-check):
+### Published installers (not available until tag v1.1.0)
 
-```bash
-# Linux/macOS
-python3 scripts/install.py
-# or: sh scripts/quickstart.sh
-# Windows PowerShell
-py -3 scripts\install.py
-# or: & .\scripts\quickstart.ps1
-```
-
-After a published tag:
-
-```bash
-pipx install cloud-saf
-# Homebrew tap (HEAD until the first bottle):
-brew install --HEAD Formula/cloud-saf.rb
-```
-
-Container:
+`pyproject.toml` declares version `1.1.0`. There is **no GitHub Release, PyPI project, or GHCR image yet**. Until `v1.1.0` is tagged and the Release workflow succeeds, do not use `pipx install cloud-saf` or `docker pull ghcr.io/rikterskale/cloud-saf`. Use `scripts/install.py` or build the local container:
 
 ```bash
 docker build -t csaf:local .
@@ -84,6 +85,8 @@ docker run --rm --read-only --cap-drop ALL --tmpfs /tmp \
   --user "$(id -u):$(id -g)" -v "${PWD}/out:/work/out" \
   csaf:local --self-check --output-dir /work/out
 ```
+
+Homebrew (`Formula/cloud-saf.rb`) is source-only (`brew install --HEAD Formula/cloud-saf.rb`) until a tagged tarball exists.
 
 ## Guided live assessment
 
@@ -203,6 +206,9 @@ from `Inventory` and `Assessment` selections.
 Each control maps to CIS Foundations, NIST SP 800-53, NIST CSF 2.0, SOC 2 TSC,
 the relevant Well-Architected pillar, and/or MITRE ATT&CK.
 
+AWS `CIS-AWS:*` IDs follow CIS Foundations **v5.0.0**. Azure 6.0 / GCP 5.0 / Kubernetes 1.11
+IDs are the labeled baseline versions; treat any remaining older-edition numbers as a known gap.
+
 ### AWS — 33 controls ([`control-catalog.json`](controls/control-catalog.json))
 
 Identity, S3, EC2, network, CloudTrail/Config/GuardDuty/Security Hub, KMS, RDS, Secrets Manager, operations attestation. Default baseline: `baselines/aws-cis-5.0.json`.
@@ -229,23 +235,24 @@ RBAC (cluster-admin and wildcard roles), pod security (privileged, hostNetwork/P
 | `[CSAF-E004]` AccessDenied | identity cannot read an API | Attach AWS `SecurityAudit` (or Azure Reader + Security Reader / GCP `roles/viewer`) |
 | `[INCOMPLETE]` / exit 2 on `--self-check` | demo leaves one control untested | None — this is success |
 | `Fatal: Unauthorized profile` | Validation without a signed engagement | Use `--profile Assessment`, or sign an engagement |
-| `pip install csaf` is the wrong tool | PyPI name collision | `pipx install cloud-saf` or `python scripts/install.py` |
+| `pip install csaf` is the wrong tool | PyPI name collision | `python scripts/install.py` (then, after v1.1.0 is tagged, `pipx install cloud-saf`) |
+| `pipx install cloud-saf` 404 | no GitHub Release / PyPI publish yet | Use `python scripts/install.py` |
 
 Need a traceback? Re-run with `--log-level DEBUG`.
 
 ## FAQ
 
 **Do I need cloud credentials to try this?**
-No. `python3 invoke_assessment.py --self-check --output-dir out` uses synthetic data.
+No. `python scripts/install.py` uses synthetic data for the first run.
 
 **Will this change my account?**
 No. Mutating verbs are blocked in process.
 
 **Can I `pip install csaf` from PyPI?**
-Not this project. Install `cloud-saf` from this repository.
+Not this project. The distribution name is `cloud-saf`. It is not on PyPI until tag `v1.1.0`.
 
 **Is there a tagged release?**
-`pyproject.toml` declares `1.1.0`; cut `v1.1.0` via [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+`pyproject.toml` declares `1.1.0`; cut `v1.1.0` via [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) after CI is green.
 
 **What is `authorizedSourceAddresses`?**
 An engagement field this local tool cannot prove, so an active run containing this restriction **fails closed**. Enforce the restriction outside CSAF or omit the field.
@@ -349,6 +356,7 @@ wheel/sdist smoke, 90% coverage.
 
 `.github/workflows/release.yml` attests artifacts, publishes a GitHub Release, publishes
 `cloud-saf` to PyPI (Trusted Publishing), and pushes `ghcr.io/rikterskale/cloud-saf:<version>`.
+That workflow has not produced a release until a `v*` tag is pushed on a green `main`.
 
 ## Extending to other clouds
 

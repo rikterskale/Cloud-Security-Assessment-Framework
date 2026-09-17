@@ -2,6 +2,8 @@
 # Until a tagged tarball exists, install from HEAD:
 #   brew install --HEAD Formula/cloud-saf.rb
 class CloudSaf < Formula
+  include Language::Python::Virtualenv
+
   desc "Read-only multi-cloud security posture assessment (AWS, Azure, GCP, Kubernetes)"
   homepage "https://github.com/rikterskale/Cloud-Security-Assessment-Framework"
   license "MIT"

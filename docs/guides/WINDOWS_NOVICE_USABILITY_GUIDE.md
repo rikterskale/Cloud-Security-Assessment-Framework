@@ -5,7 +5,7 @@ platform: windows
 canonical_path: docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md
 project_name: Cloud Security Assessment Framework (CSAF)
 target_release: "1.1.0 (untagged until GitHub Release)"
-target_commit: 2732fc72c6e4a1d3ab6e1a17fb1ce28fc9560936
+target_commit: e67e0f52594142ba587644147532c53f4bce581d
 support_status: native_supported
 alternative_support_paths: []
 validation_status: statically_verified_only
@@ -58,7 +58,7 @@ Install prerequisites, download CSAF, create an isolated environment, run a safe
 - About 500 MB free disk space.
 - Internet access for download and dependency steps (the offline demo needs no internet).
 - A standard user account is enough. Installing Python/Git may show a **User Account Control** prompt; approve it. No step needs a permanently elevated Administrator shell.
-- (Only for real cloud assessments) read-only cloud credentials (e.g. an AWS profile with `ReadOnlyAccess`/`SecurityAudit`).
+- (Only for real cloud assessments) read-only cloud credentials (e.g. an AWS profile with `SecurityAudit`).
 
 ## 8. Computer and Software Requirements
 

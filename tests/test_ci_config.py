@@ -52,6 +52,14 @@ class TestCIConfig(unittest.TestCase):
         needs_line = next(line for line in self.text.splitlines() if "needs:" in line)
         self.assertIn("sbom", needs_line, "ci-success must depend on the sbom job")
 
+    def test_completions_are_utf8_lf(self):
+        for name in ("csaf-assess.bash", "_csaf-assess", "csaf-assess.ps1"):
+            data = (REPO / "completions" / name).read_bytes()
+            self.assertFalse(data.startswith(b"\xff\xfe"), name)
+            self.assertNotIn(0, data, name)
+            self.assertNotIn(b"\r\n", data, name)
+            data.decode("utf-8")
+
     def test_python_matrix(self):
         for version in ["3.10", "3.11", "3.12", "3.13", "3.14"]:
             self.assertIn(version, self.text, f"CI matrix missing Python {version}")

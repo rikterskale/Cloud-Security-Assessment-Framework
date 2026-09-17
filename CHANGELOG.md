@@ -28,6 +28,10 @@ Release, PyPI publish, and GHCR image.
 
 - Distribution name renamed from `csaf` to `cloud-saf` to avoid the PyPI collision with OASIS CSAF.
 - `--preflight` treats the selected cloud's SDK as required rather than optional.
+- README five-minute path leads with `scripts/install.py`; pipx/GHCR are documented as unavailable until tag `v1.1.0`.
+- AWS `CIS-AWS:*` mappings retargeted to CIS Foundations Benchmark v5.0.0 recommendation numbers.
+- Live AWS preflight probes the read APIs the scan uses (S3, EC2, CloudTrail, Config, GuardDuty, Security Hub, KMS, RDS, Secrets Manager), not only STS and IAM summary.
+- CLI prints severity-ranked findings with remediation after a run.
 
 ### Deprecated
 
@@ -36,3 +40,6 @@ Release, PyPI publish, and GHCR image.
 ### Fixed
 
 - `test_dependencies.py` now uses packaged catalogs so an installed wheel preflight succeeds.
+- Shell completions are UTF-8 LF (they had been committed as UTF-16 LE, which failed the CI completions gate).
+- Homebrew formula includes `Language::Python::Virtualenv`.
+- Live preflight Azure/GCP/Kubernetes grant steps point at `--guide` instead of a mutating one-liner as the only fix.

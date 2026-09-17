@@ -36,8 +36,9 @@ Out of scope:
 - The reference methodology documents under `reference/` (documentation only,
   not executed code).
 - Misconfiguration of the *credentials* an operator supplies to CSAF (e.g.
-  using an overly broad IAM policy instead of the recommended `ReadOnlyAccess`
-  / `SecurityAudit` policy) — CSAF's guardrail is defense-in-depth, not a
+  using an overly broad IAM policy instead of the recommended AWS managed
+  `SecurityAudit` policy, Azure Reader + Security Reader, GCP `roles/viewer`,
+  or Kubernetes `view`) — CSAF's guardrail is defense-in-depth, not a
   substitute for least-privilege credentials.
 
 ## Disclosure

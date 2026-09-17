@@ -37,7 +37,6 @@ NEW_AWS = [
         "expectedState": "AWS Security Hub CSPM is enabled in the assessed region.",
         "profiles": ["Inventory", "Assessment", "Validation", "AdversarySimulation"],
         "mappings": [
-            "CIS-AWS:1.2",
             "NIST-800-53:SI-4",
             "NIST-CSF-2.0:DE.CM",
             "SOC2:CC7.2",
@@ -56,7 +55,6 @@ NEW_AWS = [
         "expectedState": "Every EBS volume is encrypted at rest.",
         "profiles": ["Inventory", "Assessment", "Validation", "AdversarySimulation"],
         "mappings": [
-            "CIS-AWS:2.2.1",
             "NIST-800-53:SC-28",
             "NIST-CSF-2.0:PR.DS",
             "SOC2:CC6.7",

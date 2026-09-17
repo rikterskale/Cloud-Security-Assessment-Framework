@@ -5,7 +5,7 @@ platform: linux
 canonical_path: docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md
 project_name: Cloud Security Assessment Framework (CSAF)
 target_release: "1.1.0 (untagged until GitHub Release)"
-target_commit: 2732fc72c6e4a1d3ab6e1a17fb1ce28fc9560936
+target_commit: e67e0f52594142ba587644147532c53f4bce581d
 support_status: native_supported
 alternative_support_paths: []
 validation_status: partially_verified
@@ -63,7 +63,7 @@ By the end you will have: installed the prerequisites, downloaded CSAF, created 
 - About 500 MB of free disk space.
 - Internet access for the download and dependency steps (the offline demo itself needs no internet).
 - Permission to use `sudo` **only** for installing system packages (section 12). Everything else runs as a normal user.
-- (Only for real cloud assessments) read-only credentials for your cloud, e.g. an AWS profile with the AWS-managed `ReadOnlyAccess`/`SecurityAudit` policy.
+- (Only for real cloud assessments) read-only credentials for your cloud, e.g. an AWS profile with the AWS-managed `SecurityAudit` policy.
 
 ## 8. Computer and Software Requirements
 

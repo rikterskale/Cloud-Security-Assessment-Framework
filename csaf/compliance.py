@@ -1,8 +1,8 @@
 """Compliance framework rollup from control mappings.
 
-Mappings are authored on each control in the catalog (e.g. ``CIS-AWS:1.5``,
+Mappings are authored on each control in the catalog (e.g. ``CIS-AWS:1.4``,
 ``NIST-800-53:IA-2``). This module rolls failing controls up to a per-framework
-summary rather than guessing from free text.
+summary rather than guessing from free text. CIS AWS IDs are CIS Foundations v5.0.0.
 """
 
 from __future__ import annotations

@@ -6,6 +6,7 @@ Usage (from a source checkout):
     python scripts/install.py --cloud azure --live --subscription 00000000-0000-0000-0000-000000000000
 
 Exit 0 means the first assessment completed (the offline demo's exit 2 is mapped to 0).
+This installer never calls a cloud API unless --live is passed.
 """
 
 from __future__ import annotations
@@ -22,6 +23,13 @@ VENV = ROOT / ".venv"
 REQUIRED_PYTHON = (3, 10)
 SELFCHECK_INCOMPLETE = 2
 
+# Child processes must emit UTF-8. Completions and reports break on UTF-16 consoles.
+_CHILD_ENV = {
+    **os.environ,
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8",
+}
+
 
 def _venv_python() -> Path:
     if os.name == "nt":
@@ -37,6 +45,7 @@ def _fail(code: str, cause: str, resource: str, fix: str) -> int:
 
 
 def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    kwargs.setdefault("env", _CHILD_ENV)
     return subprocess.run(cmd, cwd=ROOT, check=False, **kwargs)
 
 
@@ -57,14 +66,17 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def ensure_python(executable: str) -> int:
     proc = _run(
-        [executable, "-c", "import sys; print('%d.%d' % sys.version_info[:2])"], capture_output=True, text=True
+        [executable, "-c", "import sys; print('%d.%d' % sys.version_info[:2])"],
+        capture_output=True,
+        text=True,
     )
     if proc.returncode != 0:
         return _fail(
             "CSAF-E001",
             "The selected Python interpreter could not be executed.",
             executable,
-            "Install Python 3.10+ from https://www.python.org/downloads/ and re-run: python scripts/install.py",
+            "Install Python 3.10+ from https://www.python.org/downloads/ then: "
+            "py -3.12 scripts/install.py   (Windows) or python3.12 scripts/install.py",
         )
     major_s, minor_s = proc.stdout.strip().split(".")
     major, minor = int(major_s), int(minor_s)
@@ -97,7 +109,7 @@ def create_venv(executable: str) -> int:
     return 0
 
 
-def install_locked(cloud: str) -> int:
+def install_locked() -> int:
     py = str(_venv_python())
     lock = ROOT / "requirements-lock.txt"
     if not lock.is_file():
@@ -107,7 +119,7 @@ def install_locked(cloud: str) -> int:
             str(lock),
             "Restore requirements-lock.txt from the repository and retry.",
         )
-    for cmd, resource, fix in (
+    steps = (
         ([py, "-m", "pip", "install", "--upgrade", "pip"], "pip", f"{py} -m pip install --upgrade pip"),
         (
             [py, "-m", "pip", "install", "--require-hashes", "-r", str(lock)],
@@ -115,12 +127,13 @@ def install_locked(cloud: str) -> int:
             f"{py} -m pip install --require-hashes -r requirements-lock.txt",
         ),
         ([py, "-m", "pip", "install", "--no-deps", str(ROOT)], str(ROOT), f"{py} -m pip install --no-deps ."),
-    ):
+    )
+    for cmd, resource, fix in steps:
         print(f"[*] {' '.join(cmd)}")
         proc = _run(cmd)
         if proc.returncode != 0:
             return _fail("CSAF-E001", "Dependency installation failed.", resource, fix)
-    print(f"[PASS] locked dependencies and cloud-saf package installed (provider extra: {cloud})")
+    print("[PASS] locked dependencies and cloud-saf package installed")
     return 0
 
 
@@ -157,7 +170,14 @@ def local_preflight(cloud: str, output_dir: str) -> int:
             print(f"    Fix: {fix}")
         if check.get("required", True) and status == "FAIL":
             blocked = True
-    return 1 if blocked or proc.returncode == 1 else 0
+    if blocked or proc.returncode == 1:
+        return _fail(
+            "CSAF-E001",
+            "Local preflight failed.",
+            "python/deps/catalog/output-dir",
+            f"{' '.join(_assess_cmd())} --preflight --cloud {cloud} --output-format text",
+        )
+    return 0
 
 
 def live_preflight(args: argparse.Namespace) -> int:
@@ -182,25 +202,50 @@ def live_preflight(args: argparse.Namespace) -> int:
         cmd.extend(["--kube-context", args.kube_context])
     if args.kubeconfig:
         cmd.extend(["--kubeconfig", args.kubeconfig])
+    print(f"[*] {' '.join(cmd)}")
     proc = _run(cmd)
-    return proc.returncode
+    if proc.returncode != 0:
+        return _fail(
+            "CSAF-E002",
+            "Live credential/API preflight failed.",
+            args.cloud,
+            f"csaf-assess --guide --cloud {args.cloud}",
+        )
+    return 0
+
+
+def _latest_run_dir(output_dir: str) -> Path | None:
+    base = ROOT / output_dir
+    if not base.is_dir():
+        return None
+    runs = [p for p in base.iterdir() if p.is_dir()]
+    return max(runs, key=lambda p: p.stat().st_mtime) if runs else None
 
 
 def run_self_check(cloud: str, output_dir: str) -> int:
     cmd = [*_assess_cmd(), "--self-check", "--cloud", cloud, "--output-dir", output_dir]
     print(f"[*] {' '.join(cmd)}")
     proc = _run(cmd)
-    if proc.returncode == SELFCHECK_INCOMPLETE:
-        print("[PASS] first assessment completed (demo coverage is intentionally incomplete; exit 2 is success).")
-        return 0
-    if proc.returncode != 0:
+    if proc.returncode not in (0, SELFCHECK_INCOMPLETE):
         return _fail(
             "CSAF-E999",
             f"Self-check failed with exit {proc.returncode}.",
             output_dir,
             f"{' '.join(_assess_cmd())} --self-check --cloud {cloud} --output-dir {output_dir} --log-level DEBUG",
         )
-    print("[PASS] first assessment completed")
+    run_dir = _latest_run_dir(output_dir)
+    required = ("executive-summary.html", "findings.csv", "findings.json", "manifest.json")
+    missing = [name for name in required if run_dir is None or not (run_dir / name).is_file()]
+    if missing:
+        return _fail(
+            "CSAF-E003",
+            "Self-check finished but expected report files were not written.",
+            ", ".join(missing),
+            f"{' '.join(_assess_cmd())} --self-check --cloud {cloud} --output-dir {output_dir} --log-level DEBUG",
+        )
+    print(f"[PASS] first assessment written to {run_dir}")
+    if proc.returncode == SELFCHECK_INCOMPLETE:
+        print("[PASS] demo coverage is intentionally incomplete; exit 2 is success.")
     return 0
 
 
@@ -210,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
     for step in (
         lambda: ensure_python(args.python),
         lambda: create_venv(args.python),
-        lambda: install_locked(args.cloud),
+        install_locked,
         lambda: local_preflight(args.cloud, args.output_dir),
     ):
         code = step()
@@ -225,10 +270,13 @@ def main(argv: list[str] | None = None) -> int:
         if code:
             return code
     activate = r".venv\Scripts\Activate.ps1" if os.name == "nt" else "source .venv/bin/activate"
+    run_dir = _latest_run_dir(args.output_dir)
+    html = str((run_dir / "executive-summary.html") if run_dir else Path(args.output_dir) / "*/executive-summary.html")
     print("\nWhat just happened: locked dependencies installed; first assessment written.")
     print(f"Next: {activate}")
-    print(f"      csaf-assess --preflight --live --cloud {args.cloud}")
-    print("      Open out/*/executive-summary.html")
+    print(f"      Open {html}")
+    print(f"      For a real {args.cloud} account: csaf-assess --guide --cloud {args.cloud}")
+    print("      pipx/Homebrew/GHCR are not a substitute until a GitHub Release tag exists.")
     return 0
 
 

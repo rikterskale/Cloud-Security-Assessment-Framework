@@ -195,7 +195,15 @@ def run_assessment(config: RunConfig) -> RunResult:
         output_base.mkdir(parents=True, exist_ok=True)
         out_dir.mkdir(exist_ok=False)
     except Exception as exc:
-        return RunResult(EXIT_FATAL, str(output_base), {}, {}, 0, False, f"Fatal: cannot create run directory: {exc}")
+        from .errors import ERROR_CODES, CsafError, format_error
+
+        err = CsafError(
+            ERROR_CODES["file"],
+            f"CSAF could not create the run directory ({exc}).",
+            str(out_dir),
+            "csaf-assess --output-dir ./out    # choose a writable directory",
+        )
+        return RunResult(EXIT_FATAL, str(output_base), {}, {}, 0, False, f"Fatal: {format_error(err)}")
 
     logger = AssessmentLogger(
         run_id=run_id,

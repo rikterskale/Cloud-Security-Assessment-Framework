@@ -55,9 +55,9 @@ jobs:
           git diff --exit-code -- docs/CLI_REFERENCE.md
       - name: Verify generated shell completions
         run: |
-          python tools/generate_completions.py bash > completions/csaf-assess.bash
-          python tools/generate_completions.py zsh > completions/_csaf-assess
-          python tools/generate_completions.py powershell > completions/csaf-assess.ps1
+          python tools/generate_completions.py bash --write
+          python tools/generate_completions.py zsh --write
+          python tools/generate_completions.py powershell --write
           git diff --exit-code -- completions/
       - name: Validate shipped control catalogs against their real module registries
         # Invoked as a module (not the csaf-lint-catalog console script) because

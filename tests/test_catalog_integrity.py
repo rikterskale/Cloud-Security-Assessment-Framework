@@ -41,6 +41,44 @@ class TestCatalogIntegrity(unittest.TestCase):
             for control in catalog.controls:
                 self.assertIn(control.id, REMEDIATION, f"{control.id} has no remediation entry")
 
+    def test_aws_cis_ids_match_foundations_v5(self):
+        """Guard the Security Hub CIS AWS Foundations v5.0.0 recommendation numbers."""
+        expected = {
+            "CSAF-AWS-IAM-001": {"CIS-AWS:1.4"},
+            "CSAF-AWS-IAM-002": {"CIS-AWS:1.3"},
+            "CSAF-AWS-IAM-003": {"CIS-AWS:1.6"},
+            "CSAF-AWS-IAM-004": {"CIS-AWS:1.7", "CIS-AWS:1.8"},
+            "CSAF-AWS-IAM-005": {"CIS-AWS:1.9"},
+            "CSAF-AWS-IAM-006": {"CIS-AWS:1.13"},
+            "CSAF-AWS-IAM-007": {"CIS-AWS:1.11"},
+            "CSAF-AWS-IAM-008": set(),
+            "CSAF-AWS-IAM-009": {"CIS-AWS:1.19"},
+            "CSAF-AWS-S3-001": {"CIS-AWS:2.1.4"},
+            "CSAF-AWS-S3-002": {"CIS-AWS:2.1.4"},
+            "CSAF-AWS-S3-003": set(),
+            "CSAF-AWS-S3-004": {"CIS-AWS:2.1.1"},
+            "CSAF-AWS-EC2-001": {"CIS-AWS:5.7"},
+            "CSAF-AWS-EC2-002": {"CIS-AWS:5.1.1"},
+            "CSAF-AWS-EC2-004": set(),
+            "CSAF-AWS-NET-001": {"CIS-AWS:5.3", "CIS-AWS:5.4"},
+            "CSAF-AWS-NET-002": {"CIS-AWS:5.5"},
+            "CSAF-AWS-NET-003": {"CIS-AWS:3.7"},
+            "CSAF-AWS-LOG-001": {"CIS-AWS:3.1"},
+            "CSAF-AWS-LOG-002": {"CIS-AWS:3.2"},
+            "CSAF-AWS-LOG-003": {"CIS-AWS:3.5"},
+            "CSAF-AWS-LOG-004": {"CIS-AWS:3.3"},
+            "CSAF-AWS-LOG-006": set(),
+            "CSAF-AWS-KMS-001": {"CIS-AWS:3.6"},
+            "CSAF-AWS-RDS-001": {"CIS-AWS:2.2.1"},
+            "CSAF-AWS-RDS-002": {"CIS-AWS:2.2.3"},
+            "CSAF-AWS-SEC-001": set(),
+        }
+        catalog = Catalog.load(CONTROLS_DIR / "control-catalog.json")
+        by_id = {control.id: control for control in catalog.controls}
+        for control_id, cis_ids in expected.items():
+            mappings = {m for m in by_id[control_id].mappings if m.startswith("CIS-AWS:")}
+            self.assertEqual(mappings, cis_ids, control_id)
+
     def test_control_ids_are_unique_across_clouds(self):
         seen: dict[str, str] = {}
         for filename in CATALOGS:

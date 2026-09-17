@@ -57,6 +57,9 @@ class TestRunSummary(unittest.TestCase):
         out = buf.getvalue()
         self.assertIn(code, (0, 2))
         self.assertIn("Findings by severity:", out)
+        self.assertIn("Ranked findings", out)
+        self.assertIn("CSAF-AWS-IAM-001", out)
+        self.assertIn("Enable a hardware or virtual MFA", out)
         if code == 2:
             self.assertIn("exit 2", out)
 
