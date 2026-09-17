@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "catalogVersion": "2026.1",
+  "catalogVersion": "2026.2",
   "cloud": "Azure",
   "profiles": {
     "Inventory": "Collects configuration inventory without issuing most security conclusions.",
@@ -17,9 +17,23 @@
       "check": "custom_owner_roles",
       "defaultSeverity": "HIGH",
       "expectedState": "No custom RBAC role grants Actions:* at subscription or root scope.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:1.23", "MITRE:T1078.004", "NIST-800-53:AC-6"],
-      "references": ["https://learn.microsoft.com/azure/role-based-access-control/custom-roles"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:1.23",
+        "MITRE:T1078.004",
+        "NIST-800-53:AC-6",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3",
+        "WA-Azure:SEC"
+      ],
+      "references": [
+        "https://learn.microsoft.com/azure/role-based-access-control/custom-roles"
+      ]
     },
     {
       "id": "CSAF-AZ-IAM-002",
@@ -29,8 +43,19 @@
       "check": "subscription_owner_count",
       "defaultSeverity": "MEDIUM",
       "expectedState": "No more than the baseline threshold of Owner role assignments exist at subscription scope.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["MITRE:T1078.004", "NIST-800-53:AC-6(5)"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "MITRE:T1078.004",
+        "NIST-800-53:AC-6(5)",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -41,9 +66,23 @@
       "check": "defender_plans",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Defender plans for servers, storage, and SQL are on the Standard tier.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:2.1", "NIST-800-53:SI-4", "MITRE:DS0015"],
-      "references": ["https://learn.microsoft.com/azure/defender-for-cloud/enable-enhanced-security"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:2.1",
+        "NIST-800-53:SI-4",
+        "MITRE:DS0015",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-Azure:SEC"
+      ],
+      "references": [
+        "https://learn.microsoft.com/azure/defender-for-cloud/enable-enhanced-security"
+      ]
     },
     {
       "id": "CSAF-AZ-DEF-002",
@@ -53,8 +92,19 @@
       "check": "security_contact",
       "defaultSeverity": "LOW",
       "expectedState": "A security contact email address is configured for the subscription.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:2.1.18", "NIST-800-53:IR-6"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:2.1.18",
+        "NIST-800-53:IR-6",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -65,8 +115,19 @@
       "check": "secure_transfer",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every storage account sets supportsHttpsTrafficOnly to true.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:3.1", "NIST-800-53:SC-8"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:3.1",
+        "NIST-800-53:SC-8",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -77,8 +138,19 @@
       "check": "blob_public_access",
       "defaultSeverity": "HIGH",
       "expectedState": "Every storage account sets allowBlobPublicAccess to false.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:3.7", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:3.7",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -89,8 +161,19 @@
       "check": "minimum_tls",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every storage account sets minimumTlsVersion to TLS1_2 or newer.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:3.15", "NIST-800-53:SC-8"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:3.15",
+        "NIST-800-53:SC-8",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -101,8 +184,19 @@
       "check": "default_network_deny",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every storage account's network ACL default action is Deny.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:3.8", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:3.8",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -113,8 +207,20 @@
       "check": "nsg_admin_ingress",
       "defaultSeverity": "HIGH",
       "expectedState": "No network security group allows inbound Internet/any traffic to ports 22 or 3389.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:6.1", "CIS-Azure:6.2", "MITRE:T1133"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:6.1",
+        "CIS-Azure:6.2",
+        "MITRE:T1133",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -125,8 +231,19 @@
       "check": "network_watcher",
       "defaultSeverity": "LOW",
       "expectedState": "Network Watcher is provisioned in every location that hosts a virtual network.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:6.5", "NIST-800-53:AU-12"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:6.5",
+        "NIST-800-53:AU-12",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -137,8 +254,19 @@
       "check": "vm_managed_disks",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every VM's OS and data disks are managed disks (no legacy VHD blobs).",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:7.2", "NIST-800-53:SC-28"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:7.2",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -149,8 +277,19 @@
       "check": "activity_log_export",
       "defaultSeverity": "MEDIUM",
       "expectedState": "A diagnostic setting exports Administrative, Security, Policy, and Alert activity-log categories.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:5.1.1", "NIST-800-53:AU-2"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:5.1.1",
+        "NIST-800-53:AU-2",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-Azure:OPS"
+      ],
       "references": []
     },
     {
@@ -161,8 +300,19 @@
       "check": "sql_auditing",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every Azure SQL server has auditing set to Enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:4.1.1", "NIST-800-53:AU-2"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:4.1.1",
+        "NIST-800-53:AU-2",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-Azure:OPS"
+      ],
       "references": []
     },
     {
@@ -173,8 +323,19 @@
       "check": "sql_public_network_access",
       "defaultSeverity": "HIGH",
       "expectedState": "Every Azure SQL server sets publicNetworkAccess to Disabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:4.1.2", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:4.1.2",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
       "references": []
     },
     {
@@ -185,9 +346,22 @@
       "check": "purge_protection",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every key vault enables soft delete and purge protection.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-Azure:8.4", "NIST-800-53:CP-9"],
-      "references": ["https://learn.microsoft.com/azure/key-vault/general/soft-delete-overview"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Azure:8.4",
+        "NIST-800-53:CP-9",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-Azure:SEC"
+      ],
+      "references": [
+        "https://learn.microsoft.com/azure/key-vault/general/soft-delete-overview"
+      ]
     },
     {
       "id": "CSAF-AZ-SEC-001",
@@ -197,10 +371,19 @@
       "check": "secret_bearing_locations",
       "defaultSeverity": "LOW",
       "expectedState": "Potential secret-bearing locations are inventoried under explicit authorization; secret values are never retrieved or persisted.",
-      "profiles": ["Validation"],
+      "profiles": [
+        "Validation"
+      ],
       "validationOnly": true,
-      "mappings": ["NIST-800-53:CM-8"],
-      "references": ["https://trustedsec.com/blog/the-art-of-hunting-azure-cloud-secrets"]
+      "mappings": [
+        "NIST-800-53:CM-8",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.1",
+        "WA-Azure:SEC"
+      ],
+      "references": [
+        "https://trustedsec.com/blog/the-art-of-hunting-azure-cloud-secrets"
+      ]
     },
     {
       "id": "CSAF-AZ-OPS-001",
@@ -210,8 +393,18 @@
       "check": "attestation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "A documented, tested break-glass procedure exists for Global Administrator and subscription Owner access.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["NIST-800-53:CP-2"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "NIST-800-53:CP-2",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1",
+        "WA-Azure:REL"
+      ],
       "references": []
     }
   ]

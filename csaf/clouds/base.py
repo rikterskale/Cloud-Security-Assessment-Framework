@@ -27,10 +27,10 @@ class CheckContext:
     account_id: str
     region: str
     profile: str
-    baseline: "Baseline"
-    evidence: "EvidenceStore"
-    logger: "AssessmentLogger"
-    engagement: "Engagement"
+    baseline: Baseline
+    evidence: EvidenceStore
+    logger: AssessmentLogger
+    engagement: Engagement
     secret_discovery_enabled: bool = False
     session: object = None
     cache: dict = field(default_factory=dict)
@@ -78,7 +78,7 @@ class AssessmentModule:
 
     name: str = "base"
 
-    def evaluate(self, control: "Control", ctx: CheckContext) -> list[ControlResult]:
+    def evaluate(self, control: Control, ctx: CheckContext) -> list[ControlResult]:
         method = getattr(self, control.check, None)
         if method is None or not callable(method):
             return [
@@ -90,9 +90,14 @@ class AssessmentModule:
             ]
         try:
             outcome = method(control, ctx)
-        except Exception as exc:  # noqa: BLE001 - errors become Error results, never passes
+        except Exception as exc:
+            from ..errors import from_exception
+
+            err = from_exception(exc, resource=f"{control.id}@{ctx.account_id}/{ctx.region}")
             ctx.logger.error(self.name, f"{control.id} raised {type(exc).__name__}: {exc}", controlId=control.id)
-            return [self.error(control, ctx, f"{type(exc).__name__}: {exc}")]
+            result = self.error(control, ctx, err.format())
+            result.resource_id = result.resource_id or err.resource
+            return [result]
         if outcome is None:
             return []
         if isinstance(outcome, ControlResult):
@@ -101,7 +106,7 @@ class AssessmentModule:
 
     # --- Result helpers ----------------------------------------------------
 
-    def _base_kwargs(self, control: "Control", ctx: CheckContext) -> dict:
+    def _base_kwargs(self, control: Control, ctx: CheckContext) -> dict:
         return {
             "control_id": control.id,
             "title": control.title,
@@ -115,7 +120,7 @@ class AssessmentModule:
 
     def result(
         self,
-        control: "Control",
+        control: Control,
         ctx: CheckContext,
         status: str,
         observed: str,
@@ -144,7 +149,7 @@ class AssessmentModule:
 
     ACTIVE_PROFILES = ("Validation", "AdversarySimulation")
 
-    def active_validation(self, control: "Control", ctx: CheckContext, evaluate) -> ControlResult:
+    def active_validation(self, control: Control, ctx: CheckContext, evaluate) -> ControlResult:
         """Run an engagement-gated, non-destructive active validation check.
 
         Active validation (e.g. ``iam:SimulatePrincipalPolicy`` — a read-only
@@ -184,11 +189,11 @@ class AssessmentModule:
             )
         try:
             return evaluate(control, ctx)
-        except Exception as exc:  # noqa: BLE001 - active-check errors become Error, never a pass
+        except Exception as exc:
             ctx.logger.error(self.name, f"{control.id} active validation raised {type(exc).__name__}: {exc}")
             return self.error(control, ctx, f"active validation error: {type(exc).__name__}: {exc}")
 
-    def error(self, control: "Control", ctx: CheckContext, reason: str) -> ControlResult:
+    def error(self, control: Control, ctx: CheckContext, reason: str) -> ControlResult:
         kwargs = self._base_kwargs(control, ctx)
         return ControlResult(
             status="Error",

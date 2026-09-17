@@ -48,6 +48,35 @@ class TestClusterAdminBindings(RbacTestCase):
         self.assertEqual({r.resource_id for r in results}, {"demo-admin-binding"})
         self.assertTrue(all(r.status == "Fail" for r in results))
 
+
+def cluster_role(name, verbs, resources):
+    return SimpleNamespace(
+        metadata=SimpleNamespace(name=name),
+        rules=[SimpleNamespace(verbs=verbs, resources=resources)],
+    )
+
+
+class TestWildcardVerbs(RbacTestCase):
+    def ctx_roles(self, roles, bindings):
+        rbac_v1 = FakeK8sApiGroup(
+            responses={
+                "list_cluster_role": SimpleNamespace(items=roles),
+                "list_cluster_role_binding": SimpleNamespace(items=bindings),
+            }
+        )
+        return make_k8s_ctx(self.tmp.name, apis={"rbac_v1": rbac_v1})
+
+    def test_wildcard_binding_flagged(self):
+        roles = [cluster_role("wide", ["*"], ["pods"])]
+        bindings = [binding("wide-bind", "wide", [subject("User", "bob")])]
+        results = self.module.wildcard_verbs(make_control(), self.ctx_roles(roles, bindings))
+        self.assertEqual({r.resource_id for r in results}, {"wide-bind"})
+
+    def test_system_subject_ignored(self):
+        roles = [cluster_role("wide", ["*"], ["*"])]
+        bindings = [binding("sys", "wide", [subject("Group", "system:masters")])]
+        self.assertEqual(self.module.wildcard_verbs(make_control(), self.ctx_roles(roles, bindings)).status, "Pass")
+
     def test_kube_system_service_account_not_flagged(self):
         bindings = [
             binding(

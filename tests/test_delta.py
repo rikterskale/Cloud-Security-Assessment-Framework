@@ -66,7 +66,7 @@ class TestDeltaEndToEnd(unittest.TestCase):
             config = RunConfig(
                 profile="Assessment",
                 catalog_path=str(repo / "controls" / "control-catalog.json"),
-                baseline_path=str(repo / "baselines" / "aws-cis-1.5.json"),
+                baseline_path=str(repo / "baselines" / "aws-cis-5.0.json"),
                 output_dir=str(first_dir),
                 self_check=True,
                 log_level="ERROR",

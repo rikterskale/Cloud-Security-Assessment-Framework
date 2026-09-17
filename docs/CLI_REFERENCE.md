@@ -15,7 +15,10 @@
 | `--previous-findings` | `none` | Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json). |
 | `--aws-profile` | `none` | Named AWS credentials profile to use (read-only). |
 | `--subscription` | `none` | Azure subscription ID to assess (default: discovered if unambiguous). |
+| `--subscriptions` | `[]` | Azure: assess these subscription IDs sequentially and write an aggregate report. |
 | `--project` | `none` | GCP project ID to assess (default: the ADC default project). |
+| `--projects` | `[]` | GCP: assess these project IDs sequentially and write an aggregate report. |
+| `--accounts` | `[]` | AWS: expected account ID (multiple accounts require a campaign with per-profile targets). |
 | `--kube-context` | `none` | Kubeconfig context to assess (default: the kubeconfig's current-context). |
 | `--kubeconfig` | `none` | Path to a kubeconfig file (default: the standard kubeconfig locations/KUBECONFIG env var). |
 | `--max-workers` | `1` | AWS only: evaluate this many regions concurrently (default: 1, sequential). |
@@ -25,7 +28,9 @@
 | `--log-level` | `INFO` |  |
 | `--explain` | `none` | Print a control's intent, expected state, mappings, and remediation, then exit (offline; uses --cloud to pick the catalog). |
 | `--check-only` | `False` | Preflight: validate the profile, engagement, scope, and catalog selection, then exit without contacting the cloud or writing reports (exit 0 if a run would be authorized, 1 otherwise). |
-| `--preflight` | `False` | Check Python, dependencies, packaged resources, and output access without cloud calls or reports. |
+| `--preflight` | `False` | Check Python, dependencies, packaged resources, and output access without reports. Add --live to also validate cloud credentials, permissions, and API access. |
+| `--live` | `False` | With --preflight, probe cloud credentials/API access (read-only). Live assessments probe automatically unless --skip-live-preflight is set. |
+| `--skip-live-preflight` | `False` | Skip the automatic read-only credential/API probe on live assessments. |
 | `--plan` | `False` | Print a deterministic no-network control and scope preview, then exit. |
 | `--tutorial` | `False` | Run the safe offline fixture tutorial and verify its manifest. |
 | `--cleanup-tutorial` | `False` | Remove only the tutorial output directory named by --output-dir after a tutorial run. |
@@ -33,6 +38,7 @@
 | `--color` | `False` | Force ANSI color when stdout is not a terminal. |
 | `--completion` | `none` | Print shell completion generated from this command's argparse options, then exit. |
 | `--output-format` | `text` | Format --preflight or --plan output (default: text). |
+| `--guide` | `False` | Print a step-by-step live-assessment playbook for --cloud (credentials, roles, commands). No cloud calls. |
 | `--self-check` | `False` | Run offline with synthetic data (no cloud calls). |
 | `--version` | `==SUPPRESS==` | show program's version number and exit |
 

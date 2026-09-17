@@ -15,6 +15,11 @@ FRAMEWORK_PREFIXES = {
     "CIS-GCP": "CIS Google Cloud Platform Foundations",
     "CIS-Kubernetes": "CIS Kubernetes Benchmark",
     "NIST-800-53": "NIST SP 800-53",
+    "NIST-CSF-2.0": "NIST Cybersecurity Framework 2.0",
+    "SOC2": "SOC 2 Trust Services Criteria",
+    "WA-AWS": "AWS Well-Architected Framework",
+    "WA-Azure": "Azure Well-Architected Framework",
+    "WA-GCP": "Google Cloud Architecture Framework",
     "MITRE": "MITRE ATT&CK",
     "RhinoSecurityLabs": "Rhino Security Labs Privesc Matrix",
 }

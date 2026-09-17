@@ -43,5 +43,6 @@ Out of scope:
 ## Disclosure
 
 We ask for a reasonable opportunity to investigate and release a fix before
-any public disclosure. There is no fixed SLA at this project's current stage,
-but reports will be acknowledged as soon as practical.
+any public disclosure. Reports will be acknowledged within **5 business days**.
+A fix or mitigation timeline will be provided after triage; critical guardrail
+or authorization bypasses are treated as the highest priority.

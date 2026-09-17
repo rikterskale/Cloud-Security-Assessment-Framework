@@ -18,7 +18,7 @@ Offline demo (no cloud needed):
 Assess an AWS account:
     python3 invoke_assessment.py --profile Assessment \
         --regions us-east-1 us-west-2 --aws-profile audit \
-        --baseline baselines/aws-cis-1.5.json --output-dir out
+        --baseline baselines/aws-cis-5.0.json --output-dir out
 
 Assess an Azure subscription (uses DefaultAzureCredential):
     python3 invoke_assessment.py --cloud azure \
@@ -89,8 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Read-only multi-cloud security posture assessment (CSAF).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=_EXIT_CODE_HELP
-        + "\nDiscover a control offline: --explain CONTROL_ID\nGenerate completion: --completion bash|zsh|powershell\n",
+        epilog=_EXIT_CODE_HELP + "\nGuided live setup: --guide --cloud aws|azure|gcp|k8s"
+        "\nDiscover a control offline: --explain CONTROL_ID\nGenerate completion: --completion bash|zsh|powershell\n",
     )
     parser.add_argument(
         "--cloud",
@@ -146,7 +146,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--subscription", default=None, help="Azure subscription ID to assess (default: discovered if unambiguous)."
     )
+    parser.add_argument(
+        "--subscriptions",
+        nargs="+",
+        default=[],
+        help="Azure: assess these subscription IDs sequentially and write an aggregate report.",
+    )
     parser.add_argument("--project", default=None, help="GCP project ID to assess (default: the ADC default project).")
+    parser.add_argument(
+        "--projects",
+        nargs="+",
+        default=[],
+        help="GCP: assess these project IDs sequentially and write an aggregate report.",
+    )
+    parser.add_argument(
+        "--accounts",
+        nargs="+",
+        default=[],
+        help="AWS: expected account ID (multiple accounts require a campaign with per-profile targets).",
+    )
     parser.add_argument(
         "--kube-context",
         default=None,
@@ -199,7 +217,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--preflight",
         action="store_true",
-        help="Check Python, dependencies, packaged resources, and output access without cloud calls or reports.",
+        help="Check Python, dependencies, packaged resources, and output access without reports. "
+        "Add --live to also validate cloud credentials, permissions, and API access.",
+    )
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="With --preflight, probe cloud credentials/API access (read-only). "
+        "Live assessments probe automatically unless --skip-live-preflight is set.",
+    )
+    parser.add_argument(
+        "--skip-live-preflight",
+        action="store_true",
+        help="Skip the automatic read-only credential/API probe on live assessments.",
     )
     parser.add_argument(
         "--plan",
@@ -235,6 +265,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="text",
         help="Format --preflight or --plan output (default: text).",
     )
+    parser.add_argument(
+        "--guide",
+        action="store_true",
+        help="Print a step-by-step live-assessment playbook for --cloud (credentials, roles, commands). No cloud calls.",
+    )
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")
     return parser
@@ -247,6 +282,12 @@ def main(argv: list[str] | None = None) -> int:
         from csaf.completion import render
 
         print(render(args.completion, build_parser()), end="")
+        return 0
+
+    if args.guide:
+        from csaf.operator_guide import render_guide
+
+        print(render_guide(args.cloud))
         return 0
 
     if args.cleanup_tutorial and not args.tutorial:
@@ -264,9 +305,31 @@ def main(argv: list[str] | None = None) -> int:
     if args.preflight:
         from csaf.preflight import format_preflight, preflight_json, run_preflight
 
-        checks = run_preflight(args.cloud, args.output_dir)
+        checks = run_preflight(
+            args.cloud,
+            args.output_dir,
+            live=args.live,
+            aws_profile=args.aws_profile,
+            subscription=args.subscription,
+            project=args.project,
+            kube_context=args.kube_context,
+            kubeconfig=args.kubeconfig,
+        )
         print(
-            json.dumps(preflight_json(checks), indent=2) if args.output_format == "json" else format_preflight(checks)
+            json.dumps(preflight_json(checks), indent=2)
+            if args.output_format == "json"
+            else format_preflight(
+                checks,
+                live=args.live,
+                cloud=args.cloud,
+                aws_profile=args.aws_profile,
+                subscription=args.subscription,
+                project=args.project,
+                kube_context=args.kube_context,
+                kubeconfig=args.kubeconfig,
+                regions=args.regions,
+                output_dir=args.output_dir,
+            )
         )
         return 0 if all(not check.required or check.status != "FAIL" for check in checks) else 1
 
@@ -322,6 +385,10 @@ def main(argv: list[str] | None = None) -> int:
         check_only=args.check_only,
         no_color=args.no_color,
         color=args.color,
+        skip_live_preflight=args.skip_live_preflight,
+        subscriptions=args.subscriptions,
+        projects=args.projects,
+        accounts=args.accounts,
     )
     result = run_assessment(config)
     status = "OK" if result.exit_code == 0 else "INCOMPLETE" if result.exit_code == 2 else "FATAL"
@@ -341,10 +408,14 @@ def main(argv: list[str] | None = None) -> int:
     if result.exit_code == 2 and args.self_check:
         print("[INCOMPLETE] is expected for --self-check: its fixture intentionally leaves one control untested.")
     if not args.tutorial:
+        from csaf.operator_guide import aftercare
+
         print(
-            next_steps(
-                "Open executive-summary.html, or run --explain CONTROL_ID for a remediation hint.",
-                "Assessment reports and evidence were written.",
+            aftercare(
+                cloud=args.cloud,
+                output_dir=result.output_dir,
+                exit_code=result.exit_code,
+                self_check=args.self_check,
             )
         )
     if args.tutorial:

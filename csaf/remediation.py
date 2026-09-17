@@ -34,6 +34,8 @@ REMEDIATION = {
     "CSAF-AWS-SEC-001": "Enable automatic rotation on every Secrets Manager secret that supports it.",
     "CSAF-AWS-SEC-002": "Re-encrypt Secrets Manager secrets with a customer-managed KMS key instead of the default key.",
     "CSAF-AWS-OPS-001": "Document and periodically test a break-glass procedure for root and privileged access.",
+    "CSAF-AWS-LOG-006": "Enable AWS Security Hub CSPM in every assessed region and subscribe to the CIS AWS Foundations Benchmark v5.0 standard.",
+    "CSAF-AWS-EC2-004": "Enable encryption on existing EBS volumes by snapshot-copying to an encrypted volume, and keep EBS encryption-by-default enabled.",
     # --- Azure ---------------------------------------------------------------
     "CSAF-AZ-IAM-001": "Delete custom RBAC roles granting Actions:* at subscription scope; use built-in least-privilege roles.",
     "CSAF-AZ-IAM-002": "Reduce subscription Owner assignments to a small, named set; use PIM eligible assignments for the rest.",
@@ -78,6 +80,12 @@ REMEDIATION = {
     "CSAF-K8S-NET-001": "Create a default-deny NetworkPolicy in the namespace, then allow only required traffic.",
     "CSAF-K8S-OPS-001": "Document and periodically test a break-glass procedure for cluster-admin access.",
     "CSAF-K8S-OPS-002": "Start kube-apiserver with --audit-log-path and an audit policy that records security-relevant events; ship logs to durable storage.",
+    "CSAF-K8S-POD-003": "Remove hostPID: true from the pod spec unless required and explicitly approved.",
+    "CSAF-K8S-POD-004": "Remove hostIPC: true from the pod spec unless required and explicitly approved.",
+    "CSAF-K8S-POD-005": "Remove hostPath volumes; use PersistentVolumes, secrets, or projected volumes instead.",
+    "CSAF-K8S-POD-006": "Set allowPrivilegeEscalation: false on every container securityContext.",
+    "CSAF-K8S-SA-001": "Set automountServiceAccountToken: false on the default service account in every workload namespace.",
+    "CSAF-K8S-RBAC-002": "Replace ClusterRoles that grant * verbs or * resources with least-privilege Role/RoleBinding pairs.",
     "CSAF-K8S-OPS-003": "Configure an EncryptionConfiguration with an aescbc or KMS provider so Secret resources are encrypted at rest in etcd, then rewrite existing secrets.",
     "CSAF-K8S-OPS-004": "Enable Pod Security Admission (or an equivalent controller such as OPA/Kyverno) enforcing at least the 'baseline' standard on workload namespaces.",
 }

@@ -1,5 +1,6 @@
 # Single reproducible input set for CI, release, and all supported providers.
 -r requirements.txt
+-r requirements-aws.txt
 -r requirements-azure.txt
 -r requirements-gcp.txt
 -r requirements-k8s.txt

@@ -45,17 +45,17 @@ def instance(instance_id, state="running", tokens="required", public_ip=None, gr
     return inst
 
 
-def ec2_client(instances=(), security_groups=(), ebs_default=None):
+def ec2_client(instances=(), security_groups=(), ebs_default=None, volumes=None):
     responses = {}
     if ebs_default is not None:
         responses["get_ebs_encryption_by_default"] = {"EbsEncryptionByDefault": ebs_default}
-    return FakeClient(
-        responses=responses,
-        pages={
-            "describe_instances": [{"Reservations": [{"Instances": list(instances)}]}],
-            "describe_security_groups": [{"SecurityGroups": list(security_groups)}],
-        },
-    )
+    pages = {
+        "describe_instances": [{"Reservations": [{"Instances": list(instances)}]}],
+        "describe_security_groups": [{"SecurityGroups": list(security_groups)}],
+    }
+    if volumes is not None:
+        pages["describe_volumes"] = [{"Volumes": list(volumes)}]
+    return FakeClient(responses=responses, pages=pages)
 
 
 class ComputeTestCase(unittest.TestCase):
@@ -100,6 +100,25 @@ class TestEbsDefaultEncryption(ComputeTestCase):
         self.assertEqual(
             self.module.ebs_default_encryption(make_control(), self.ctx(ec2_client(ebs_default=False))).status, "Fail"
         )
+
+
+class TestEbsVolumesEncrypted(ComputeTestCase):
+    def test_unencrypted_volume_fails(self):
+        ctx = self.ctx(
+            ec2_client(
+                volumes=[{"VolumeId": "vol-enc", "Encrypted": True}, {"VolumeId": "vol-plain", "Encrypted": False}]
+            )
+        )
+        results = self.module.ebs_volumes_encrypted(make_control(), ctx)
+        self.assertEqual([r.resource_id for r in results], ["vol-plain"])
+
+    def test_all_encrypted_passes(self):
+        ctx = self.ctx(ec2_client(volumes=[{"VolumeId": "vol-1", "Encrypted": True}]))
+        self.assertEqual(self.module.ebs_volumes_encrypted(make_control(), ctx).status, "Pass")
+
+    def test_no_volumes_not_applicable(self):
+        ctx = self.ctx(ec2_client(volumes=[]))
+        self.assertEqual(self.module.ebs_volumes_encrypted(make_control(), ctx).status, "NotApplicable")
 
 
 class TestPublicInstanceExposure(ComputeTestCase):

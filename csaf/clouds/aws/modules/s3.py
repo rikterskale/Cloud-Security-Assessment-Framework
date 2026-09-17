@@ -39,7 +39,7 @@ class S3Module(AssessmentModule):
         client = ctx.session.client("s3control")
         try:
             cfg = client.get_public_access_block(AccountId=ctx.account_id)["PublicAccessBlockConfiguration"]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if "NoSuchPublicAccessBlockConfiguration" in str(exc):
                 return self.result(control, ctx, "Fail", "No account-level public access block configured.")
             raise
@@ -59,7 +59,7 @@ class S3Module(AssessmentModule):
                 status = s3.get_bucket_policy_status(Bucket=name)["PolicyStatus"]
                 if status.get("IsPublic"):
                     public, reason = True, "policy public"
-            except Exception as exc:  # noqa: BLE001 - only an explicitly absent policy is fine
+            except Exception as exc:
                 if _error_code(exc) not in NO_BUCKET_POLICY_CODES:
                     raise
             try:
@@ -86,7 +86,7 @@ class S3Module(AssessmentModule):
         for name in self._buckets(ctx):
             try:
                 s3.get_bucket_encryption(Bucket=name)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 if "ServerSideEncryptionConfigurationNotFoundError" in str(exc):
                     offenders.append(name)
                 elif "AccessDenied" in str(exc):
@@ -119,7 +119,7 @@ class S3Module(AssessmentModule):
                     secure = cond.get("Bool", {}).get("aws:SecureTransport")
                     if stmt.get("Effect") == "Deny" and str(secure).lower() == "false":
                         enforced = True
-            except Exception:  # noqa: BLE001 - no policy => not enforced
+            except Exception:
                 enforced = False
             if not enforced:
                 offenders.append(name)

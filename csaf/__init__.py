@@ -9,8 +9,8 @@ exploitation. Optional non-destructive validation checks are gated behind the
 Validation authorization profile.
 """
 
-FRAMEWORK_VERSION = "1.0.0"
+FRAMEWORK_VERSION = "1.1.0"
 SCHEMA_VERSION = "3.0"
 CATALOG_SCHEMA_VERSION = "1.0"
 
-__all__ = ["FRAMEWORK_VERSION", "SCHEMA_VERSION", "CATALOG_SCHEMA_VERSION"]
+__all__ = ["CATALOG_SCHEMA_VERSION", "FRAMEWORK_VERSION", "SCHEMA_VERSION"]

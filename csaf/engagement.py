@@ -46,7 +46,7 @@ class Engagement:
     _signed_content: dict = field(default_factory=dict, repr=False)
 
     @classmethod
-    def load(cls, path: str | Path | None) -> "Engagement":
+    def load(cls, path: str | Path | None) -> Engagement:
         if not path:
             return cls()
         with open(path, encoding="utf-8") as handle:

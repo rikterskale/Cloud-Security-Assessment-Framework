@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "catalogVersion": "2026.1",
+  "catalogVersion": "2026.2",
   "cloud": "AWS",
   "profiles": {
     "Inventory": "Collects configuration inventory without issuing most security conclusions.",
@@ -17,9 +17,23 @@
       "check": "root_mfa",
       "defaultSeverity": "CRITICAL",
       "expectedState": "The account root user has an MFA device enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.5", "MITRE:T1078.004", "NIST-800-53:IA-2"],
-      "references": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.5",
+        "MITRE:T1078.004",
+        "NIST-800-53:IA-2",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_root-user.html"
+      ]
     },
     {
       "id": "CSAF-AWS-IAM-002",
@@ -29,9 +43,22 @@
       "check": "root_access_keys",
       "defaultSeverity": "CRITICAL",
       "expectedState": "The root user has no active access keys.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.4", "MITRE:T1078.004"],
-      "references": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.4",
+        "MITRE:T1078.004",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html"
+      ]
     },
     {
       "id": "CSAF-AWS-IAM-003",
@@ -41,8 +68,19 @@
       "check": "root_last_used",
       "defaultSeverity": "HIGH",
       "expectedState": "The root user has not been used within the recent-activity threshold.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.7", "MITRE:T1078.004"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.7",
+        "MITRE:T1078.004",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -53,8 +91,19 @@
       "check": "password_policy",
       "defaultSeverity": "MEDIUM",
       "expectedState": "A password policy exists requiring length >= 14 and complexity.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.8", "NIST-800-53:IA-5"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.8",
+        "NIST-800-53:IA-5",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -65,8 +114,20 @@
       "check": "user_mfa",
       "defaultSeverity": "HIGH",
       "expectedState": "Every IAM user with a console password has an MFA device.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.10", "MITRE:T1078.004", "NIST-800-53:IA-2(1)"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.10",
+        "MITRE:T1078.004",
+        "NIST-800-53:IA-2(1)",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -77,8 +138,18 @@
       "check": "access_key_rotation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Active access keys are younger than the rotation threshold (default 90 days).",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.14"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.14",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -89,8 +160,19 @@
       "check": "unused_credentials",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Passwords and access keys unused beyond the inactivity threshold are disabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.12", "MITRE:T1078.004"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.12",
+        "MITRE:T1078.004",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -101,8 +183,19 @@
       "check": "star_admin_policies",
       "defaultSeverity": "HIGH",
       "expectedState": "No customer-managed policy allows Action:* over Resource:* .",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.16", "MITRE:T1078"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.16",
+        "MITRE:T1078",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -113,8 +206,18 @@
       "check": "access_analyzer",
       "defaultSeverity": "MEDIUM",
       "expectedState": "At least one IAM Access Analyzer analyzer is active in the account.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:1.20"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.20",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -126,9 +229,20 @@
       "defaultSeverity": "HIGH",
       "validationOnly": true,
       "expectedState": "No non-admin principal is granted permissions enabling IAM privilege escalation (e.g. iam:CreatePolicyVersion, iam:PassRole + compute create, lambda:UpdateFunctionCode).",
-      "profiles": ["Validation", "AdversarySimulation"],
-      "mappings": ["MITRE:T1548", "RhinoSecurityLabs:AWS-IAM-Privesc"],
-      "references": ["https://rhinosecuritylabs.com/aws/aws-privilege-escalation-methods-mitigation/"]
+      "profiles": [
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "MITRE:T1548",
+        "RhinoSecurityLabs:AWS-IAM-Privesc",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://rhinosecuritylabs.com/aws/aws-privilege-escalation-methods-mitigation/"
+      ]
     },
     {
       "id": "CSAF-AWS-S3-001",
@@ -138,8 +252,19 @@
       "check": "account_public_access_block",
       "defaultSeverity": "HIGH",
       "expectedState": "All four account-level S3 Block Public Access settings are enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.1.5", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.1.5",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -150,8 +275,19 @@
       "check": "bucket_public_access",
       "defaultSeverity": "CRITICAL",
       "expectedState": "No bucket policy or ACL grants public read/write access.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.1.5", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.1.5",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -162,8 +298,19 @@
       "check": "bucket_encryption",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every bucket has default server-side encryption configured.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.1.1", "NIST-800-53:SC-28"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.1.1",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -174,8 +321,19 @@
       "check": "bucket_tls_policy",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Bucket policies deny requests where aws:SecureTransport is false.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.1.2", "NIST-800-53:SC-8"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.1.2",
+        "NIST-800-53:SC-8",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -186,9 +344,22 @@
       "check": "imdsv2_required",
       "defaultSeverity": "HIGH",
       "expectedState": "Every running instance sets HttpTokens=required (IMDSv2).",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:5.6", "MITRE:T1552.005"],
-      "references": ["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:5.6",
+        "MITRE:T1552.005",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html"
+      ]
     },
     {
       "id": "CSAF-AWS-EC2-002",
@@ -198,8 +369,19 @@
       "check": "ebs_default_encryption",
       "defaultSeverity": "MEDIUM",
       "expectedState": "EBS encryption-by-default is enabled in each assessed region.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.2.1", "NIST-800-53:SC-28"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.2.1",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -210,8 +392,18 @@
       "check": "public_instance_exposure",
       "defaultSeverity": "HIGH",
       "expectedState": "Instances with public IPs are not reachable on administrative ports from 0.0.0.0/0.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["MITRE:T1133"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "MITRE:T1133",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -222,8 +414,19 @@
       "check": "sg_admin_ingress",
       "defaultSeverity": "HIGH",
       "expectedState": "No security group allows 0.0.0.0/0 or ::/0 ingress to ports 22 or 3389.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:5.2", "MITRE:T1133"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:5.2",
+        "MITRE:T1133",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -234,8 +437,18 @@
       "check": "default_sg_restricted",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every default security group has no inbound or outbound rules.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:5.4"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:5.4",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -246,8 +459,19 @@
       "check": "vpc_flow_logs",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every VPC in scope has an active flow log.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.9", "NIST-800-53:AU-12"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.9",
+        "NIST-800-53:AU-12",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -258,8 +482,19 @@
       "check": "cloudtrail_multiregion",
       "defaultSeverity": "HIGH",
       "expectedState": "At least one multi-region CloudTrail trail is logging and enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.1", "NIST-800-53:AU-2"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.1",
+        "NIST-800-53:AU-2",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:OPS"
+      ],
       "references": []
     },
     {
@@ -270,8 +505,19 @@
       "check": "cloudtrail_log_validation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "CloudTrail trails enable log file integrity validation.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.2", "NIST-800-53:AU-9"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.2",
+        "NIST-800-53:AU-9",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:OPS"
+      ],
       "references": []
     },
     {
@@ -282,8 +528,19 @@
       "check": "cloudtrail_kms",
       "defaultSeverity": "MEDIUM",
       "expectedState": "CloudTrail trails encrypt logs with a KMS CMK.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.5", "NIST-800-53:SC-28"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.5",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:OPS"
+      ],
       "references": []
     },
     {
@@ -294,8 +551,19 @@
       "check": "config_enabled",
       "defaultSeverity": "MEDIUM",
       "expectedState": "AWS Config recorder is enabled and recording in each assessed region.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.3", "NIST-800-53:CM-8"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.3",
+        "NIST-800-53:CM-8",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:OPS"
+      ],
       "references": []
     },
     {
@@ -306,8 +574,19 @@
       "check": "guardduty_enabled",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Amazon GuardDuty has an active detector in each assessed region.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["MITRE:DS0015", "NIST-800-53:SI-4"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "MITRE:DS0015",
+        "NIST-800-53:SI-4",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -318,8 +597,19 @@
       "check": "kms_key_rotation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Enabled customer-managed symmetric CMKs have automatic rotation on.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:3.8", "NIST-800-53:SC-12"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:3.8",
+        "NIST-800-53:SC-12",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -330,8 +620,19 @@
       "check": "rds_encryption",
       "defaultSeverity": "HIGH",
       "expectedState": "Every RDS instance has storage encryption enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.3.1", "NIST-800-53:SC-28"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.3.1",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -342,8 +643,19 @@
       "check": "rds_public_access",
       "defaultSeverity": "HIGH",
       "expectedState": "No RDS instance has PubliclyAccessible set to true.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.3.3", "MITRE:T1530"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.3.3",
+        "MITRE:T1530",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
       "references": []
     },
     {
@@ -354,9 +666,23 @@
       "check": "secret_rotation_enabled",
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every Secrets Manager secret has automatic rotation enabled.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["CIS-AWS:2.3.4", "NIST-800-53:IA-5", "MITRE:T1552.001"],
-      "references": ["https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets.html"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.3.4",
+        "NIST-800-53:IA-5",
+        "MITRE:T1552.001",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets.html"
+      ]
     },
     {
       "id": "CSAF-AWS-SEC-002",
@@ -366,9 +692,21 @@
       "check": "secret_cmk_encryption",
       "defaultSeverity": "LOW",
       "expectedState": "Every Secrets Manager secret is encrypted with a customer-managed KMS key, not the default AWS-managed key.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["NIST-800-53:SC-28"],
-      "references": ["https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html"]
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.1",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/secretsmanager/latest/userguide/security-encryption.html"
+      ]
     },
     {
       "id": "CSAF-AWS-OPS-001",
@@ -378,9 +716,70 @@
       "check": "attestation",
       "defaultSeverity": "MEDIUM",
       "expectedState": "A documented, tested break-glass procedure exists for root and privileged access.",
-      "profiles": ["Assessment", "Validation", "AdversarySimulation"],
-      "mappings": ["NIST-800-53:CP-2"],
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "NIST-800-53:CP-2",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1",
+        "WA-AWS:REL"
+      ],
       "references": []
+    },
+    {
+      "id": "CSAF-AWS-LOG-006",
+      "title": "Security Hub CSPM is enabled",
+      "category": "Detection",
+      "module": "logging",
+      "check": "securityhub_enabled",
+      "defaultSeverity": "HIGH",
+      "expectedState": "AWS Security Hub CSPM is enabled in the assessed region.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:1.2",
+        "NIST-800-53:SI-4",
+        "NIST-CSF-2.0:DE.CM",
+        "SOC2:CC7.2",
+        "WA-AWS:SEC",
+        "MITRE:DS0015"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-enable.html"
+      ]
+    },
+    {
+      "id": "CSAF-AWS-EC2-004",
+      "title": "EBS volumes are encrypted",
+      "category": "Compute",
+      "module": "compute",
+      "check": "ebs_volumes_encrypted",
+      "defaultSeverity": "HIGH",
+      "expectedState": "Every EBS volume is encrypted at rest.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-AWS:2.2.1",
+        "NIST-800-53:SC-28",
+        "NIST-CSF-2.0:PR.DS",
+        "SOC2:CC6.7",
+        "WA-AWS:SEC"
+      ],
+      "references": [
+        "https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html"
+      ]
     }
   ]
 }

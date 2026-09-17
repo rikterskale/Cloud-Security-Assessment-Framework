@@ -12,14 +12,14 @@ class TestK8sCatalogExpansion(unittest.TestCase):
         self.ids = {c["id"] for c in self.catalog["controls"]}
 
     def test_version_aligned_with_peers(self):
-        self.assertEqual(self.catalog["catalogVersion"], "2026.1")
+        self.assertEqual(self.catalog["catalogVersion"], "2026.2")
 
     def test_new_operations_controls_present(self):
         for cid in ("CSAF-K8S-OPS-002", "CSAF-K8S-OPS-003", "CSAF-K8S-OPS-004"):
             self.assertIn(cid, self.ids)
 
     def test_control_count_grew(self):
-        self.assertGreaterEqual(len(self.catalog["controls"]), 8)
+        self.assertGreaterEqual(len(self.catalog["controls"]), 14)
 
     def test_new_controls_have_mappings_and_expected_state(self):
         for control in self.catalog["controls"]:

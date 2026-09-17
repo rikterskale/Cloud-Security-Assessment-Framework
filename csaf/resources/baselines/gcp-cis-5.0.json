@@ -1,11 +1,14 @@
 {
-  "baselineId": "gcp-cis-1.3",
-  "title": "CIS Google Cloud Platform Foundations Benchmark v1.3 aligned baseline",
+  "baselineId": "gcp-cis-5.0",
+  "title": "CIS Google Cloud Platform Foundations Benchmark v5.0 aligned baseline",
   "cloud": "GCP",
-  "version": "2026.1",
+  "version": "2026.2",
   "description": "Threshold values consumed by CSAF GCP check functions. Customer baselines may override any key.",
   "thresholds": {
-    "sensitiveIngressPorts": [22, 3389],
+    "sensitiveIngressPorts": [
+      22,
+      3389
+    ],
     "saKeyMaxAgeDays": 90,
     "kmsRotationMaxDays": 90
   },

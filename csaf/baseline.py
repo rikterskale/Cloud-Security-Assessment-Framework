@@ -43,7 +43,7 @@ class Baseline:
         self.not_applicable_controls = set(data.get("notApplicableControls", []))
 
     @classmethod
-    def load(cls, path: str | Path | None) -> "Baseline":
+    def load(cls, path: str | Path | None) -> Baseline:
         if not path:
             return cls()
         with open(path, encoding="utf-8") as handle:

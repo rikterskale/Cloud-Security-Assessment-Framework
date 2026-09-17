@@ -14,7 +14,7 @@ import os
 import re
 import secrets
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from importlib.resources import files
 from pathlib import Path
 
@@ -51,22 +51,22 @@ CLOUDS = {
     "aws": {
         "label": "AWS",
         "catalog": "control-catalog.json",
-        "baseline": "aws-cis-1.5.json",
+        "baseline": "aws-cis-5.0.json",
     },
     "azure": {
         "label": "Azure",
         "catalog": "control-catalog-azure.json",
-        "baseline": "azure-cis-2.0.json",
+        "baseline": "azure-cis-6.0.json",
     },
     "gcp": {
         "label": "GCP",
         "catalog": "control-catalog-gcp.json",
-        "baseline": "gcp-cis-1.3.json",
+        "baseline": "gcp-cis-5.0.json",
     },
     "k8s": {
         "label": "K8s",
         "catalog": "control-catalog-k8s.json",
-        "baseline": "k8s-cis-1.8.json",
+        "baseline": "k8s-cis-1.11.json",
     },
 }
 
@@ -96,6 +96,10 @@ class RunConfig:
     check_only: bool = False
     no_color: bool = False
     color: bool = False
+    skip_live_preflight: bool = False
+    subscriptions: list[str] = field(default_factory=list)
+    projects: list[str] = field(default_factory=list)
+    accounts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -140,13 +144,57 @@ def source_revision() -> str:
 
 
 def run_assessment(config: RunConfig) -> RunResult:
+    if config.cloud == "azure" and len(config.subscriptions) == 1 and not config.subscription_id:
+        config = replace(config, subscription_id=config.subscriptions[0], subscriptions=[])
+    if config.cloud == "gcp" and len(config.projects) == 1 and not config.project_id:
+        config = replace(config, project_id=config.projects[0], projects=[])
+    if config.cloud == "azure" and len(config.subscriptions) > 1:
+        return _run_multi_scope(config, "subscription_id", config.subscriptions)
+    if config.cloud == "gcp" and len(config.projects) > 1:
+        return _run_multi_scope(config, "project_id", config.projects)
+    if config.cloud == "aws" and len(config.accounts) > 1:
+        return RunResult(
+            EXIT_FATAL,
+            config.output_dir,
+            {},
+            {},
+            0,
+            False,
+            "Fatal: multiple AWS accounts require a campaign with per-account aws_profile "
+            "targets. sts:AssumeRole is blocked by the read-only guardrail.\n"
+            "    Resource: --accounts\n"
+            "    Fix: csaf-campaign create org.json --campaign-id org --targets-file targets.json",
+        )
+
+    if not config.self_check and not config.check_only and not config.skip_live_preflight:
+        from .errors import probe_cloud_access
+
+        requested = {
+            "azure": config.subscription_id or (config.subscriptions[0] if config.subscriptions else None),
+            "gcp": config.project_id or (config.projects[0] if config.projects else None),
+            "aws": None,
+            "k8s": config.kube_context,
+        }.get(config.cloud)
+        probes = probe_cloud_access(
+            config.cloud,
+            aws_profile=config.aws_profile,
+            subscription=requested if config.cloud == "azure" else config.subscription_id,
+            project=requested if config.cloud == "gcp" else config.project_id,
+            kube_context=config.kube_context,
+            kubeconfig=config.kubeconfig_path,
+        )
+        blocking = [err for err in probes if err.blocking]
+        if blocking:
+            message = "Fatal: live preflight failed.\n" + "\n".join(err.format() for err in blocking)
+            return RunResult(EXIT_FATAL, config.output_dir, {}, {}, 0, False, message)
+
     run_id = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{secrets.token_hex(4)}"
     output_base = Path(config.output_dir)
     out_dir = output_base / run_id
     try:
         output_base.mkdir(parents=True, exist_ok=True)
         out_dir.mkdir(exist_ok=False)
-    except Exception as exc:  # noqa: BLE001 - preserve fatal-result contract before logging exists
+    except Exception as exc:
         return RunResult(EXIT_FATAL, str(output_base), {}, {}, 0, False, f"Fatal: cannot create run directory: {exc}")
 
     logger = AssessmentLogger(
@@ -332,8 +380,12 @@ def run_assessment(config: RunConfig) -> RunResult:
 
         results = provider.evaluate(controls, config.regions)
 
-        # Derive findings from Fail/Review results only.
-        findings = [finding_from_result(r, remediation_for(r.control_id)) for r in results if r.is_finding]
+        # Derive findings from Fail/Review results only. Inventory records
+        # observed state in control results without issuing security findings.
+        if config.profile == "Inventory":
+            findings = []
+        else:
+            findings = [finding_from_result(r, remediation_for(r.control_id)) for r in results if r.is_finding]
         delta = compute_delta(findings, config.previous_findings_path)
 
         coverage = compute_coverage(selected_ids, results)
@@ -415,9 +467,46 @@ def run_assessment(config: RunConfig) -> RunResult:
         logger.close()
         return RunResult(exit_code, str(out_dir), coverage.to_dict(), risk, len(findings), all_executed, message)
 
-    except Exception as exc:  # noqa: BLE001 - top-level guard produces a fatal exit
-        from .diagnostics import format_fatal
+    except Exception as exc:
+        from .errors import format_fatal
 
         logger.error("runner", f"Fatal error: {type(exc).__name__}: {exc}")
         logger.close()
         return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Fatal: {format_fatal(exc)}")
+
+
+def _run_multi_scope(config: RunConfig, field: str, values: list[str]) -> RunResult:
+    """Run one assessment per subscription/project and aggregate the run directories."""
+    from .aggregate import aggregate_runs, write_aggregate
+
+    results: list[RunResult] = []
+    for value in values:
+        scoped = replace(config, **{field: value, "subscriptions": [], "projects": [], "accounts": []})
+        scoped.output_dir = str(Path(config.output_dir) / value)
+        results.append(run_assessment(scoped))
+    run_dirs = [Path(item.output_dir) for item in results if (Path(item.output_dir) / "manifest.json").is_file()]
+    if run_dirs:
+        write_aggregate(aggregate_runs(run_dirs), config.output_dir)
+    fatal = next((item for item in results if item.exit_code == EXIT_FATAL), None)
+    if fatal:
+        return RunResult(
+            EXIT_FATAL,
+            config.output_dir,
+            {},
+            {},
+            sum(item.finding_count for item in results),
+            False,
+            fatal.message,
+        )
+    incomplete = any(item.exit_code == EXIT_INCOMPLETE for item in results)
+    coverage = results[-1].coverage if results else {}
+    risk = results[-1].risk if results else {}
+    return RunResult(
+        EXIT_INCOMPLETE if incomplete else EXIT_OK,
+        config.output_dir,
+        coverage,
+        risk,
+        sum(item.finding_count for item in results),
+        not incomplete,
+        f"Completed {len(results)} scoped assessment(s); aggregate written under {config.output_dir}.",
+    )

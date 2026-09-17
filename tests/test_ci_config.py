@@ -42,6 +42,8 @@ class TestCIConfig(unittest.TestCase):
             "generate_completions.py",
             "csaf.authoring",
             "dependency-review-action",
+            "mypy",
+            "sync_resources.py",
         ]:
             self.assertIn(token, self.text, f"CI is missing required gate: {token}")
 
@@ -65,6 +67,7 @@ class TestCIConfig(unittest.TestCase):
         ]:
             self.assertIn(token, text)
         self.assert_pinned_action(text, "actions/attest")
+        self.assert_pinned_action(text, "pypa/gh-action-pypi-publish")
 
     def test_codeql_scans_pushes_pull_requests_and_the_default_branch_weekly(self):
         text = CODEQL.read_text(encoding="utf-8")

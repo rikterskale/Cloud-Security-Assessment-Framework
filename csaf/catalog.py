@@ -27,7 +27,7 @@ class Control:
     validation_only: bool = False
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Control":
+    def from_dict(cls, data: dict) -> Control:
         severity = data.get("defaultSeverity", "INFO")
         if severity not in SEVERITIES:
             raise ValueError(f"Control {data.get('id')} has invalid severity {severity!r}")
@@ -53,7 +53,7 @@ class Catalog:
     controls: list[Control]
 
     @classmethod
-    def load(cls, path: str | Path) -> "Catalog":
+    def load(cls, path: str | Path) -> Catalog:
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
         validate_instance(data, "control-catalog.schema.json", path)

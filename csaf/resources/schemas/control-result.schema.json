@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/csaf/control-result.schema.json",
+  "$id": "https://raw.githubusercontent.com/rikterskale/Cloud-Security-Assessment-Framework/main/schemas/control-result.schema.json",
   "title": "CSAF control result",
   "description": "One evaluated control per selected control per account/region scope. Execution errors are represented as status Error and are never treated as a security pass.",
   "type": "object",

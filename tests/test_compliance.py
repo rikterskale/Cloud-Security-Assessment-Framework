@@ -29,6 +29,11 @@ class TestFrameworkOf(unittest.TestCase):
         self.assertIsNone(framework_of("PCI-DSS:8.3"))
         self.assertIsNone(framework_of("freetext"))
 
+    def test_2026_prefixes(self):
+        self.assertEqual(framework_of("NIST-CSF-2.0:PR.AA"), "NIST-CSF-2.0")
+        self.assertEqual(framework_of("SOC2:CC6.1"), "SOC2")
+        self.assertEqual(framework_of("WA-AWS:SEC"), "WA-AWS")
+
 
 class TestRollup(unittest.TestCase):
     def test_evaluated_passed_failed_counts(self):

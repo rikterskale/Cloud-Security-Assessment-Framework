@@ -9,7 +9,7 @@ class TestExplainException(unittest.TestCase):
     def test_provider_dependency_missing(self):
         summary, hint = explain_exception(ModuleNotFoundError("No module named 'azure'", name="azure"))
         self.assertIn("selected cloud", summary)
-        self.assertIn("csaf[azure]", hint)
+        self.assertIn("cloud-saf[azure]", hint)
 
     def test_core_dependency_missing(self):
         summary, hint = explain_exception(ModuleNotFoundError("No module named 'jsonschema'", name="jsonschema"))
@@ -23,7 +23,7 @@ class TestExplainException(unittest.TestCase):
         self.assertIn("--self-check", hint)
 
     def test_credentials_by_message(self):
-        summary, hint = explain_exception(RuntimeError("could not find credential in chain"))
+        summary, _hint = explain_exception(RuntimeError("could not find credential in chain"))
         self.assertIn("authenticate", summary.lower())
 
     def test_file_not_found(self):
@@ -48,8 +48,9 @@ class TestExplainException(unittest.TestCase):
 
     def test_format_fatal_shape(self):
         text = format_fatal(ModuleNotFoundError("No module named 'kubernetes'", name="kubernetes"))
-        self.assertIn("→", text)
-        self.assertIn("csaf[k8s]", text)
+        self.assertIn("Resource:", text)
+        self.assertIn("Fix:", text)
+        self.assertIn("cloud-saf[k8s]", text)
 
 
 if __name__ == "__main__":

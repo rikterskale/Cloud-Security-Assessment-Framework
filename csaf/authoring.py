@@ -133,7 +133,7 @@ def lint_catalog(path: str | Path, cloud: str | None = None, *, check_registry: 
     if check_registry and resolved_cloud in CLOUDS:
         try:
             registry = _module_registry(resolved_cloud)
-        except Exception as exc:  # noqa: BLE001 - provider package may not be installed
+        except Exception as exc:
             issues.append(
                 LintIssue("warning", path.name, f"module registry for {resolved_cloud!r} unavailable: {exc}")
             )

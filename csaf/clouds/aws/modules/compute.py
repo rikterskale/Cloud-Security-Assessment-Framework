@@ -54,6 +54,28 @@ class ComputeModule(AssessmentModule):
             resource_id=ctx.region,
         )
 
+    def ebs_volumes_encrypted(self, control, ctx: CheckContext):
+        ec2 = ctx.session.client("ec2", ctx.region)
+        volumes = []
+        for page in ec2.get_paginator("describe_volumes").paginate():
+            volumes.extend(page.get("Volumes", []))
+        if not volumes:
+            return self.result(control, ctx, "NotApplicable", "No EBS volumes in region.")
+        offenders = [vol.get("VolumeId") for vol in volumes if not vol.get("Encrypted")]
+        if not offenders:
+            return self.result(control, ctx, "Pass", f"All {len(volumes)} EBS volume(s) are encrypted.")
+        return [
+            self.result(
+                control,
+                ctx,
+                "Fail",
+                f"unencrypted EBS volume: {volume_id}",
+                resource_type="ebs-volume",
+                resource_id=volume_id,
+            )
+            for volume_id in offenders
+        ]
+
     def public_instance_exposure(self, control, ctx: CheckContext):
         ec2 = ctx.session.client("ec2", ctx.region)
         ports = set(ctx.baseline.get("sensitiveIngressPorts", [22, 3389]))

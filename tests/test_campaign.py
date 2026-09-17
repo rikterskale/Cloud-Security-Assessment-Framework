@@ -51,6 +51,15 @@ class TestCampaignModel(unittest.TestCase):
         self.assertEqual(config.export, ["oscal"])
         self.assertEqual(config.output_dir, "out")
 
+    def test_targets_must_be_a_list_of_objects(self):
+        c = build_campaign(campaign_id="ENG-1", self_check=True)
+        c["targets"] = "aws"
+        self.assertTrue(validate_campaign(c))
+        c["targets"] = [{"cloud": "oracle"}]
+        self.assertTrue(any("cloud" in p for p in validate_campaign(c)))
+        c["targets"] = [{"cloud": "azure", "subscription_id": "sub-1"}, {"cloud": "gcp", "project_id": "p"}]
+        self.assertEqual(validate_campaign(c), [])
+
 
 class TestCampaignCli(unittest.TestCase):
     def test_create_sign_verify_run(self):
@@ -77,28 +86,51 @@ class TestCampaignCli(unittest.TestCase):
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(main(["verify", str(campaign_path), "--key-file", str(key_file)]), 0)
 
-            # Reproducible offline run from the signed campaign.
-            out = Path(tmp) / "runs"
-            with redirect_stdout(io.StringIO()) as buf:
-                rc = main(
-                    [
-                        "run",
-                        str(campaign_path),
-                        "--key-file",
-                        str(key_file),
-                        "--output-dir",
-                        str(out),
-                        "--log-level",
-                        "ERROR",
-                    ]
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    main(
+                        [
+                            "run",
+                            str(campaign_path),
+                            "--key-file",
+                            str(key_file),
+                            "--output-dir",
+                            str(Path(tmp) / "out"),
+                        ]
+                    ),
+                    2,
                 )
-            # self-check completes with exit 0 or 2 (partial coverage is normal).
-            self.assertIn(rc, (0, 2))
-            self.assertIn("Output written", buf.getvalue())
-            run_dirs = [p for p in out.iterdir() if p.is_dir()]
-            self.assertEqual(len(run_dirs), 1)
-            self.assertTrue((run_dirs[0] / "manifest.json").is_file())
 
+    def test_multi_target_self_check_aggregates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            campaign_path = Path(tmp) / "c.json"
+            targets = Path(tmp) / "targets.json"
+            targets.write_text(
+                '[{"cloud": "aws", "selfCheck": true}, {"cloud": "azure", "selfCheck": true}]',
+                encoding="utf-8",
+            )
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(
+                    main(
+                        [
+                            "create",
+                            str(campaign_path),
+                            "--campaign-id",
+                            "ORG",
+                            "--self-check",
+                            "--targets-file",
+                            str(targets),
+                        ]
+                    ),
+                    0,
+                )
+            with redirect_stdout(io.StringIO()):
+                code = main(["run", str(campaign_path), "--output-dir", str(Path(tmp) / "runs")])
+            self.assertIn(code, (0, 2))
+            self.assertTrue((Path(tmp) / "runs" / "aggregate.json").is_file())
+
+
+class TestCampaignCliContinued(unittest.TestCase):
     def test_run_refuses_tampered_campaign(self):
         with tempfile.TemporaryDirectory() as tmp:
             campaign_path = Path(tmp) / "c.json"

@@ -18,7 +18,7 @@ class TestSelfCheckRun(unittest.TestCase):
             config = RunConfig(
                 profile="Assessment",
                 catalog_path=str(REPO / "controls" / "control-catalog.json"),
-                baseline_path=str(REPO / "baselines" / "aws-cis-1.5.json"),
+                baseline_path=str(REPO / "baselines" / "aws-cis-5.0.json"),
                 output_dir=tmp,
                 self_check=True,
                 log_level="ERROR",
@@ -57,7 +57,7 @@ class TestSelfCheckRun(unittest.TestCase):
             self.assertEqual(manifest["SourceRevision"], tech["Context"]["sourceRevision"])
 
     def test_azure_and_gcp_self_check_pipelines(self):
-        baselines = {"azure": "azure-cis-2.0.json", "gcp": "gcp-cis-1.3.json", "k8s": "k8s-cis-1.8.json"}
+        baselines = {"azure": "azure-cis-6.0.json", "gcp": "gcp-cis-5.0.json", "k8s": "k8s-cis-1.11.json"}
         for cloud, label in (("azure", "Azure"), ("gcp", "GCP"), ("k8s", "K8s")):
             with self.subTest(cloud=cloud), tempfile.TemporaryDirectory() as tmp:
                 config = RunConfig(
@@ -86,7 +86,7 @@ class TestSelfCheckRun(unittest.TestCase):
             config = RunConfig(
                 profile="Assessment",
                 catalog_path=str(REPO / "controls" / "control-catalog.json"),
-                baseline_path=str(REPO / "baselines" / "aws-cis-1.5.json"),
+                baseline_path=str(REPO / "baselines" / "aws-cis-5.0.json"),
                 output_dir=tmp,
                 self_check=True,
                 log_level="ERROR",
@@ -109,7 +109,7 @@ class TestSelfCheckRun(unittest.TestCase):
             config = RunConfig(
                 profile="Assessment",
                 catalog_path=str(REPO / "controls" / "control-catalog.json"),
-                baseline_path=str(REPO / "baselines" / "aws-cis-1.5.json"),
+                baseline_path=str(REPO / "baselines" / "aws-cis-5.0.json"),
                 output_dir=tmp,
                 self_check=True,
                 log_level="INFO",

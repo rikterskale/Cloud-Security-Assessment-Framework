@@ -24,6 +24,7 @@ python3 -m venv .venv
 source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activate.ps1
 pip install --require-hashes -r requirements-lock.txt
 pip install --no-deps -e .
+# From a clean extra-only install: pip install -e ".[aws]"  (or azure/gcp/k8s/all)
 ```
 
 ## Before you open a pull request
@@ -31,8 +32,8 @@ pip install --no-deps -e .
 Run the same gates CI runs:
 
 ```bash
-ruff check csaf tests invoke_assessment.py sign_engagement.py test_dependencies.py setup.py
-ruff format --check csaf tests
+ruff check csaf tests tools scripts invoke_assessment.py sign_engagement.py test_dependencies.py setup.py
+ruff format --check csaf tests tools scripts
 python test_dependencies.py
 python -m coverage run --source=csaf,invoke_assessment -m unittest discover -s tests
 python -m coverage report --fail-under=90

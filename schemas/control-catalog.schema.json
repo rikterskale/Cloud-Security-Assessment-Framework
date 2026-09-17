@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/csaf/control-catalog.schema.json",
+  "$id": "https://raw.githubusercontent.com/rikterskale/Cloud-Security-Assessment-Framework/main/schemas/control-catalog.schema.json",
   "title": "CSAF control catalog",
   "type": "object",
   "required": ["schemaVersion", "catalogVersion", "cloud", "profiles", "controls"],

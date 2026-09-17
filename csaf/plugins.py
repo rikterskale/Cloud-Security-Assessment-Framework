@@ -44,7 +44,7 @@ def discover_plugin_modules(group: str, builtin: dict) -> dict:
     registry = dict(builtin)
     try:
         found = entry_points(group=group)
-    except Exception as exc:  # noqa: BLE001 - a broken environment must not break CSAF's own modules
+    except Exception as exc:
         warnings.warn(f"Plugin discovery for '{group}' failed: {exc}", stacklevel=2)
         return registry
 
@@ -66,7 +66,7 @@ def discover_plugin_modules(group: str, builtin: dict) -> dict:
             continue
         try:
             registry[entry_point.name] = entry_point.load()
-        except Exception as exc:  # noqa: BLE001 - one broken plugin must not break the others
+        except Exception as exc:
             warnings.warn(f"Failed to load plugin module '{entry_point.name}': {exc}", stacklevel=2)
 
     return registry

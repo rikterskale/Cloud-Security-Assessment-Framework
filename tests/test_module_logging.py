@@ -115,5 +115,21 @@ class TestConfigAndGuardDuty(LoggingTestCase):
         self.assertEqual(self.module.guardduty_enabled(make_control(), self.ctx({"guardduty": absent})).status, "Fail")
 
 
+class TestSecurityHub(LoggingTestCase):
+    def test_enabled_passes(self):
+        client = FakeClient(responses={"describe_hub": {"HubArn": "arn:aws:securityhub:us-east-1:1:hub/default"}})
+        self.assertEqual(
+            self.module.securityhub_enabled(make_control(), self.ctx({"securityhub": client})).status, "Pass"
+        )
+
+    def test_not_enabled_fails(self):
+        exc = type("ClientError", (Exception,), {})("not subscribed")
+        exc.response = {"Error": {"Code": "InvalidAccessException"}}
+        client = FakeClient(responses={"describe_hub": exc})
+        self.assertEqual(
+            self.module.securityhub_enabled(make_control(), self.ctx({"securityhub": client})).status, "Fail"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

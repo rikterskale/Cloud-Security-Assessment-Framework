@@ -77,5 +77,31 @@ class TestHostNetworkPods(PodsTestCase):
         self.assertEqual({r.resource_id for r in results}, {"default/host-net-debug"})
 
 
+class TestHostPidAndIpc(PodsTestCase):
+    def test_host_pid_flagged(self):
+        p = pod("pid-pod")
+        p.spec.host_pid = True
+        results = self.module.host_pid_pods(make_control(), self.ctx([p]))
+        self.assertEqual({r.resource_id for r in results}, {"default/pid-pod"})
+
+    def test_host_ipc_flagged(self):
+        p = pod("ipc-pod")
+        p.spec.host_ipc = True
+        results = self.module.host_ipc_pods(make_control(), self.ctx([p]))
+        self.assertEqual({r.resource_id for r in results}, {"default/ipc-pod"})
+
+    def test_host_path_flagged(self):
+        p = pod("hp")
+        p.spec.volumes = [SimpleNamespace(host_path=SimpleNamespace(path="/var/run/docker.sock"))]
+        results = self.module.host_path_volumes(make_control(), self.ctx([p]))
+        self.assertEqual({r.resource_id for r in results}, {"default/hp"})
+
+    def test_privilege_escalation_flagged(self):
+        c = container("app", privileged=False)
+        c.security_context = SimpleNamespace(privileged=False, allow_privilege_escalation=True)
+        results = self.module.privilege_escalation(make_control(), self.ctx([pod("pe", containers=[c])]))
+        self.assertEqual({r.resource_id for r in results}, {"default/pe"})
+
+
 if __name__ == "__main__":
     unittest.main()

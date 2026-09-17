@@ -51,7 +51,7 @@ class TestMain(unittest.TestCase):
                         "--catalog",
                         str(REPO / "controls" / "control-catalog.json"),
                         "--baseline",
-                        str(REPO / "baselines" / "aws-cis-1.5.json"),
+                        str(REPO / "baselines" / "aws-cis-5.0.json"),
                     ]
                 )
             # The demo posture leaves one control untested -> CompletedWithErrors.

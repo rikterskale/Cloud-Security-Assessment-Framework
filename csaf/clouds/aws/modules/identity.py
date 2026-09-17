@@ -115,7 +115,7 @@ class IdentityModule(AssessmentModule):
         iam = ctx.session.client("iam")
         try:
             policy = iam.get_account_password_policy()["PasswordPolicy"]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             if "NoSuchEntity" in type(exc).__name__ or "NoSuchEntity" in str(exc):
                 return self.result(control, ctx, "Fail", "No account password policy is configured.")
             raise

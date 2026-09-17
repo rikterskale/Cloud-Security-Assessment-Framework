@@ -2,30 +2,37 @@
 
 All notable changes to CSAF are documented here.
 
-## 1.0.0 — Unreleased
+The Python distribution name is **cloud-saf**. The import package remains `csaf`.
+Do not `pip install csaf` — that is the OASIS Common Security Advisory Framework.
 
-`pyproject.toml` declares version `1.0.0`; it has not yet been tagged as a
-`v1.0.0` release, so the entries below are the changes prepared for that first
-release.
+## 1.1.0 — Unreleased
+
+`pyproject.toml` declares version `1.1.0`. Tag `v1.1.0` when cutting the GitHub
+Release, PyPI publish, and GHCR image.
 
 ### Added
 
-- Packaged catalogs, baselines, and JSON Schemas for installed-wheel execution.
-- Runtime JSON Schema validation for catalogs, baselines, and engagements.
-- Unique run directories and atomic report/evidence/config writes.
-- Hash-pinned dependency lockfile, installed-wheel CI smoke test, and tag-driven
-  release workflow with checksums, CycloneDX SBOM, and GitHub attestations.
+- Cross-platform installer `scripts/install.py` (venv, locked deps, preflight, first assessment).
+- Live read-only credential/API preflight (`--preflight --live`; automatic on live scans).
+- Structured errors (`csaf/errors.py`) with cause, resource, and exact fix command.
+- Optional extras: `cloud-saf[aws]`, `[azure]`, `[gcp]`, `[k8s]`, `[all]`. Core install is `jsonschema` only.
+- Console-script alias `cloud-saf`.
+- Inventory profile now selects Assessment controls and writes control results without findings.
+- 2026 mappings: NIST CSF 2.0, SOC 2 TSC, AWS/Azure/GCP Well-Architected.
+- CIS-aligned baselines retargeted: AWS 5.0, Azure 6.0, GCP 5.0, Kubernetes 1.11.
+- New controls: Security Hub enabled, EBS volume encryption, six automated Kubernetes pod/RBAC/SA checks.
+- Multi-scope Azure `--subscriptions`, GCP `--projects`, and campaign `targets` with automatic aggregate.
+- `tools/sync_resources.py` packaged-resource drift gate, mypy CI job, GHCR publish, PyPI Trusted Publishing, Homebrew formula.
 
 ### Changed
 
-- Active profiles now require a valid signed engagement, complete time window,
-  explicit account/context scope, and explicit AWS region scope.
-- Engagement cloud, account/context, and AWS region scope is enforced before
-  provider evaluation; discovered provider identity is checked again afterward.
-- `--output-dir` is now a parent directory containing one immutable run
-  subdirectory per assessment.
+- Distribution name renamed from `csaf` to `cloud-saf` to avoid the PyPI collision with OASIS CSAF.
+- `--preflight` treats the selected cloud's SDK as required rather than optional.
+
+### Deprecated
+
+- None.
 
 ### Fixed
 
-- Kubernetes catalog metadata and control-ID schema patterns now conform to the
-  same runtime contracts as AWS, Azure, and GCP.
+- `test_dependencies.py` now uses packaged catalogs so an installed wheel preflight succeeds.

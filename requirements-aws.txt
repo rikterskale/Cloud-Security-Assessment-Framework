@@ -1,0 +1,3 @@
+# Optional dependencies for live AWS assessment (--cloud aws).
+boto3>=1.34,<2.0
+botocore>=1.34,<2.0

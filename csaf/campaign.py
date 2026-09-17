@@ -119,6 +119,19 @@ def validate_campaign(campaign: dict) -> list[str]:
         problems.append(f"profile must be one of {VALID_PROFILES}")
     if not isinstance(campaign.get("regions", []), list):
         problems.append("regions must be a list")
+    targets = campaign.get("targets")
+    if targets is not None:
+        if not isinstance(targets, list) or not targets:
+            problems.append("targets must be a non-empty list when present")
+        else:
+            for index, target in enumerate(targets):
+                if not isinstance(target, dict):
+                    problems.append(f"targets[{index}] must be an object")
+                    continue
+                if "cloud" in target and target["cloud"] not in VALID_CLOUDS:
+                    problems.append(f"targets[{index}].cloud must be one of {VALID_CLOUDS}")
+                if "profile" in target and target["profile"] not in VALID_PROFILES:
+                    problems.append(f"targets[{index}].profile must be one of {VALID_PROFILES}")
     for fmt in campaign.get("export", []):
         if fmt not in VALID_EXPORTS:
             problems.append(f"export entry {fmt!r} is not one of {VALID_EXPORTS}")
@@ -177,6 +190,11 @@ def main(argv: list[str] | None = None) -> int:
     create.add_argument("--self-check", action="store_true")
     create.add_argument("--export", nargs="+", choices=VALID_EXPORTS, default=[])
     create.add_argument("--key-file", default=None, help="If given, sign the new campaign with this key.")
+    create.add_argument(
+        "--targets-file",
+        default=None,
+        help="JSON list of per-scope target objects (cloud, aws_profile, subscription_id, project_id, kube_context).",
+    )
 
     sign_p = sub.add_parser("sign", help="Sign an existing campaign in place.")
     sign_p.add_argument("campaign")
@@ -205,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
             self_check=args.self_check,
             export=args.export,
         )
+        if args.targets_file:
+            campaign["targets"] = json.loads(Path(args.targets_file).read_text(encoding="utf-8"))
         if args.key_file:
             campaign = sign_campaign(campaign, _load_key(args.key_file))
         save_campaign(campaign, args.output)
@@ -254,21 +274,38 @@ def main(argv: list[str] | None = None) -> int:
     elif "signature" in campaign:
         print("[WARN] Campaign is signed but no --key-file was given; running without verifying.")
 
+    from .aggregate import aggregate_runs, write_aggregate
     from .runner import run_assessment
 
-    config = to_run_config(
-        campaign,
-        output_dir=args.output_dir,
-        log_level=args.log_level,
-        previous_findings=args.previous_findings,
-    )
-    result = run_assessment(config)
-    print(
-        f"[{'OK' if result.exit_code == 0 else 'INCOMPLETE' if result.exit_code == 2 else 'FATAL'}] {result.message}"
-    )
-    print(f"[*] Output written to {result.output_dir}")
+    targets = campaign.get("targets") or [{}]
+    results = []
+    for index, target in enumerate(targets):
+        merged = {k: v for k, v in campaign.items() if k not in {"targets", "signature"}}
+        merged.update(target)
+        scoped_out = args.output_dir if len(targets) == 1 else str(Path(args.output_dir) / f"target-{index}")
+        config = to_run_config(
+            merged,
+            output_dir=scoped_out,
+            log_level=args.log_level,
+            previous_findings=args.previous_findings,
+        )
+        result = run_assessment(config)
+        results.append(result)
+        print(
+            f"[{'OK' if result.exit_code == 0 else 'INCOMPLETE' if result.exit_code == 2 else 'FATAL'}] "
+            f"target {index}: {result.message}"
+        )
+        print(f"[*] Output written to {result.output_dir}")
+    run_dirs = [Path(item.output_dir) for item in results if (Path(item.output_dir) / "manifest.json").is_file()]
+    if len(run_dirs) > 1:
+        paths = write_aggregate(aggregate_runs(run_dirs), args.output_dir)
+        print(f"[*] Org aggregate written to {paths['json']}")
     print(next_steps("Open executive-summary.html in the output run directory.", "The campaign assessment completed."))
-    return result.exit_code
+    if any(item.exit_code == 1 for item in results):
+        return 1
+    if any(item.exit_code == 2 for item in results):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

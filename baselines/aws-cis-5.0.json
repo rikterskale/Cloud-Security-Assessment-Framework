@@ -1,8 +1,8 @@
 {
-  "baselineId": "aws-cis-1.5",
-  "title": "AWS CIS Foundations Benchmark v1.5 aligned baseline",
+  "baselineId": "aws-cis-5.0",
+  "title": "AWS CIS Foundations Benchmark v5.0 aligned baseline",
   "cloud": "AWS",
-  "version": "2026.1",
+  "version": "2026.2",
   "description": "Threshold values consumed by CSAF check functions. Customer baselines may override any key.",
   "thresholds": {
     "passwordMinLength": 14,
@@ -15,7 +15,10 @@
     "accessKeyMaxAgeDays": 90,
     "credentialInactivityDays": 90,
     "rootActivityThresholdDays": 30,
-    "sensitiveIngressPorts": [22, 3389],
+    "sensitiveIngressPorts": [
+      22,
+      3389
+    ],
     "requireImdsV2": true,
     "requireEbsDefaultEncryption": true,
     "requireMultiRegionCloudTrail": true,

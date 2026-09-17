@@ -4,7 +4,7 @@ guide_schema_version: 1
 platform: linux
 canonical_path: docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md
 project_name: Cloud Security Assessment Framework (CSAF)
-target_release: "latest locally reviewed version: 1.0.0 (untagged, commit 2732fc7)"
+target_release: "1.1.0 (untagged until GitHub Release)"
 target_commit: 2732fc72c6e4a1d3ab6e1a17fb1ce28fc9560936
 support_status: native_supported
 alternative_support_paths: []
@@ -21,12 +21,12 @@ primary_shells: [bash]
 maintainer_source_of_truth: README.md
 known_limitations:
   - "Cloud assessments (AWS/Azure/GCP/K8s) require your own read-only credentials and were not exercised in review; only the offline --self-check journey was run live."
-  - "Update/rollback steps assume a published v1.0.0 tag, which does not yet exist; commit-based rollback is provided instead."
+  - "Update/rollback steps assume a published v1.1.0 tag, which does not yet exist; commit-based rollback is provided instead."
 ---
 
 # CSAF Linux Novice Usability Guide
 
-> Quickest first run from a checkout: `sh scripts/quickstart.sh`. It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
+> Quickest first run from a checkout: `python3 scripts/install.py` (or `sh scripts/quickstart.sh`). It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
 
 ## 1. About This Guide
 
@@ -199,7 +199,7 @@ python3 test_dependencies.py
 python3 invoke_assessment.py --version
 ```
 
-Expected output (verified): `CSAF v1.0.0`
+Expected output (verified): `CSAF v1.1.0`
 
 ## 19. Complete the First Safe Successful Run
 
@@ -292,7 +292,7 @@ To fully remove CSAF, also delete the repository folder: `cd .. && rm -rf Cloud-
 git pull && source .venv/bin/activate && pip install --require-hashes -r requirements-lock.txt && pip install --no-deps .
 ```
 
-**Rollback:** because no `v1.0.0` tag is published yet, roll back by commit:
+**Rollback:** because no `v1.1.0` tag is published yet, roll back by commit:
 
 **Command ID:** `LNX-CMD-018` · **Run in:** bash · **Working directory:** repo folder · **Privilege:** standard user · **Internet:** not required · **Safe to copy/paste:** only after replacement · **Replace:** `KNOWN_GOOD_COMMIT` → a commit you trust (example: `a5771ab`) · **Side effects:** changes checked-out code · **Validation status:** statically verified
 
@@ -300,7 +300,7 @@ git pull && source .venv/bin/activate && pip install --require-hashes -r require
 git checkout KNOWN_GOOD_COMMIT
 ```
 
-When a `v1.0.0` tag is published, `git checkout v1.0.0` will be the supported rollback.
+When a `v1.1.0` tag is published, `git checkout v1.1.0` will be the supported rollback.
 
 ## 26. Troubleshooting Matrix
 
@@ -373,5 +373,5 @@ When a `v1.0.0` tag is published, `git checkout v1.0.0` will be the supported ro
 - **Validated on:** 2026-08-01, Ubuntu 22.04, Python 3.10.12, bash, standard user.
 - **Live-verified steps:** `LNX-CMD-001/002/005/006/007/008/009/010/011/012/013/015` (install through first successful offline run and report listing).
 - **Statically verified steps:** OS package install, clone, real-cloud assessment, update, rollback, cleanup of `.venv`, cancellation.
-- **Known limitations:** cloud assessments require your own read-only credentials and were not exercised; `v1.0.0` is not yet tagged, so rollback uses a commit (see section 25).
+- **Known limitations:** cloud assessments require your own read-only credentials and were not exercised; `v1.1.0` is not yet tagged, so rollback uses a commit (see section 25).
 - **Support boundary:** questions and issues go to the project's GitHub repository; security issues follow `SECURITY.md` (private reporting).

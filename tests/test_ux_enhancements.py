@@ -42,7 +42,7 @@ class TestPreflightAndPlan(unittest.TestCase):
 class TestGeneratedDocumentation(unittest.TestCase):
     def test_cli_reference_exists_and_mentions_new_options(self):
         text = (ROOT / "docs" / "CLI_REFERENCE.md").read_text(encoding="utf-8")
-        for option in ("--preflight", "--plan", "--tutorial", "--no-color", "--output-format"):
+        for option in ("--preflight", "--plan", "--tutorial", "--no-color", "--output-format", "--guide"):
             self.assertIn(option, text)
 
     def test_coverage_schema_exists(self):

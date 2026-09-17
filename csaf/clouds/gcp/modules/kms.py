@@ -15,7 +15,7 @@ class KmsModule(AssessmentModule):
         try:
             # The '-' wildcard aggregates key rings across every location.
             return session.get_list(f"{KMS_V1}/projects/{ctx.account_id}/locations/-/keyRings", "keyRings")
-        except Exception:  # noqa: BLE001 - fall back to per-location listing
+        except Exception:
             rings: list[dict] = []
             locations = session.get_list(f"{KMS_V1}/projects/{ctx.account_id}/locations", "locations")
             for location in locations:

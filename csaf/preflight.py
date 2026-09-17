@@ -1,4 +1,4 @@
-"""Dependency-aware local preflight and no-network assessment planning."""
+"""Dependency-aware local preflight, live credential probes, and no-network planning."""
 
 from __future__ import annotations
 
@@ -11,6 +11,31 @@ from pathlib import Path
 
 from .runner import CLOUDS
 
+_CORE_MODULES = (("jsonschema", "jsonschema"),)
+_CLOUD_MODULES = {
+    "aws": [
+        ("boto3", "boto3"),
+        ("botocore", "botocore"),
+    ],
+    "azure": [
+        ("azure.identity", "azure.identity"),
+        ("requests", "requests"),
+    ],
+    "gcp": [
+        ("google-auth", "google.auth"),
+        ("requests", "requests"),
+    ],
+    "k8s": [
+        ("kubernetes", "kubernetes"),
+    ],
+}
+_EXTRA_FIX = {
+    "aws": "python -m pip install 'cloud-saf[aws]'",
+    "azure": "python -m pip install 'cloud-saf[azure]'",
+    "gcp": "python -m pip install 'cloud-saf[gcp]'",
+    "k8s": "python -m pip install 'cloud-saf[k8s]'",
+}
+
 
 @dataclass(frozen=True)
 class PreflightCheck:
@@ -21,74 +46,61 @@ class PreflightCheck:
     required: bool = True
 
 
-def _module_check(name: str, import_name: str, fix: str) -> PreflightCheck:
+def _module_check(name: str, import_name: str, fix: str, *, required: bool = True) -> PreflightCheck:
     present = importlib.util.find_spec(import_name) is not None
-    return PreflightCheck(
-        name, "PASS" if present else "FAIL", "installed" if present else "missing", "" if present else fix
-    )
+    if present:
+        return PreflightCheck(name, "PASS", "installed", "", required)
+    status = "FAIL" if required else "WARN"
+    detail = "missing" if required else "missing (needed for live provider runs)"
+    return PreflightCheck(name, status, detail, fix, required)
 
 
 def run_preflight(
-    cloud: str = "aws", output_dir: str = "csaf-output", *, include_optional: bool = True
+    cloud: str = "aws",
+    output_dir: str = "csaf-output",
+    *,
+    include_optional: bool = True,
+    live: bool = False,
+    aws_profile: str | None = None,
+    subscription: str | None = None,
+    project: str | None = None,
+    kube_context: str | None = None,
+    kubeconfig: str | None = None,
 ) -> list[PreflightCheck]:
-    """Return actionable checks without importing provider SDKs or contacting a cloud."""
+    """Return actionable checks. Live probes contact the selected cloud read-only."""
     checks = [
         PreflightCheck(
             "Python version",
             "PASS" if sys.version_info >= (3, 10) else "FAIL",
             sys.version.split()[0],
-            "" if sys.version_info >= (3, 10) else "Install Python 3.10 or newer.",
-        ),
-        _module_check(
-            "boto3",
-            "boto3",
-            "Install locked dependencies: python -m pip install --require-hashes -r requirements-lock.txt",
-        ),
-        _module_check(
-            "botocore",
-            "botocore",
-            "Install locked dependencies: python -m pip install --require-hashes -r requirements-lock.txt",
-        ),
-        _module_check(
-            "jsonschema",
-            "jsonschema",
-            "Install locked dependencies: python -m pip install --require-hashes -r requirements-lock.txt",
+            ""
+            if sys.version_info >= (3, 10)
+            else "Install Python 3.10 or newer from https://www.python.org/downloads/",
         ),
     ]
-    optional = {
-        "azure": [
-            (
-                "azure.identity",
-                "azure.identity",
-                "Install the Azure extra: python -m pip install -r requirements-azure.txt",
-            ),
-            ("requests", "requests", "Install the Azure extra: python -m pip install -r requirements-azure.txt"),
-        ],
-        "gcp": [
-            ("google-auth", "google.auth", "Install the GCP extra: python -m pip install -r requirements-gcp.txt"),
-            ("requests", "requests", "Install the GCP extra: python -m pip install -r requirements-gcp.txt"),
-        ],
-        "k8s": [
-            ("kubernetes", "kubernetes", "Install the Kubernetes extra: python -m pip install -r requirements-k8s.txt")
-        ],
-    }
-    if include_optional:
-        for name, module, fix in optional.get(cloud, []):
-            checks.append(
-                PreflightCheck(
-                    name,
-                    "PASS" if importlib.util.find_spec(module) else "WARN",
-                    "installed" if importlib.util.find_spec(module) else "missing (needed for live provider runs)",
-                    fix,
-                    required=False,
-                )
+    for name, import_name in _CORE_MODULES:
+        checks.append(
+            _module_check(
+                name,
+                import_name,
+                "python -m pip install --require-hashes -r requirements-lock.txt",
             )
-    catalog = CLOUDS.get(cloud, {}).get("catalog")
-    baseline = CLOUDS.get(cloud, {}).get("baseline")
+        )
+    cloud_fix = _EXTRA_FIX.get(cloud, "python -m pip install --require-hashes -r requirements-lock.txt")
+    for name, import_name in _CLOUD_MODULES.get(cloud, []):
+        checks.append(_module_check(name, import_name, cloud_fix, required=True))
+    if include_optional:
+        for other, modules in _CLOUD_MODULES.items():
+            if other == cloud:
+                continue
+            for name, import_name in modules:
+                checks.append(_module_check(name, import_name, _EXTRA_FIX[other], required=False))
+    catalog = str(CLOUDS.get(cloud, {}).get("catalog") or "")
+    baseline = str(CLOUDS.get(cloud, {}).get("baseline") or "")
     repo_root = Path(__file__).resolve().parents[1]
     for label, category, name in (("catalog", "controls", catalog), ("baseline", "baselines", baseline)):
         path = repo_root / category / (name or "")
-        packaged = files("csaf").joinpath("resources", category, name or "")
+        packaged = files("csaf").joinpath("resources").joinpath(category).joinpath(name or "")
         present = path.is_file() or packaged.is_file()
         detail = str(path) if path.is_file() else f"packaged resource {category}/{name}"
         checks.append(
@@ -110,32 +122,76 @@ def run_preflight(
         checks.append(
             PreflightCheck("output directory", "FAIL", str(exc), "Choose a writable path with --output-dir.")
         )
+    if live:
+        from .errors import probe_cloud_access
+
+        for err in probe_cloud_access(
+            cloud,
+            aws_profile=aws_profile,
+            subscription=subscription,
+            project=project,
+            kube_context=kube_context,
+            kubeconfig=kubeconfig,
+        ):
+            checks.append(
+                PreflightCheck(
+                    err.resource or "cloud access",
+                    "FAIL" if err.blocking else "PASS",
+                    err.cause,
+                    err.fix,
+                    required=err.blocking,
+                )
+            )
     return checks
 
 
-def format_preflight(checks: list[PreflightCheck]) -> str:
-    lines = ["CSAF preflight (no cloud calls)", ""]
+def format_preflight(
+    checks: list[PreflightCheck],
+    *,
+    live: bool = False,
+    cloud: str = "aws",
+    aws_profile: str | None = None,
+    subscription: str | None = None,
+    project: str | None = None,
+    kube_context: str | None = None,
+    kubeconfig: str | None = None,
+    regions: list[str] | None = None,
+    output_dir: str = "out",
+) -> str:
+    from .operator_guide import scan_command
+
+    title = "CSAF preflight (live credential/API checks)" if live else "CSAF preflight (no cloud calls)"
+    lines = [title, ""]
     for check in checks:
         line = f"[{check.status}] {check.name}: {check.detail}"
         if check.fix:
-            line += f"\n    Fix: {check.fix}"
+            line += f"\n    Resource: {check.name}\n    Fix: {check.fix}"
         lines.append(line)
     required_failures = [c for c in checks if c.required and c.status == "FAIL"]
-    lines.extend(
-        [
-            "",
-            "Result: "
-            + ("PASS" if not required_failures else f"BLOCKED ({len(required_failures)} required check(s) failed)"),
-            "Next: "
-            + (
-                "python3 invoke_assessment.py --self-check --output-dir out"
-                if not required_failures
-                else next(
-                    (f"Fix: {check.fix}" for check in required_failures if check.fix), "Fix the required checks above."
-                )
-            ),
-        ]
-    )
+    lines.append("")
+    if required_failures:
+        first_fix = next((check.fix for check in required_failures if check.fix), "Fix the required checks above.")
+        lines.append(f"Result: BLOCKED ({len(required_failures)} required check(s) failed)")
+        lines.append(f"Next: {first_fix}")
+        lines.append(f"      Full playbook: csaf-assess --guide --cloud {cloud}")
+    elif live:
+        cmd = scan_command(
+            cloud,
+            aws_profile=aws_profile,
+            subscription=subscription,
+            project=project,
+            kube_context=kube_context,
+            kubeconfig=kubeconfig,
+            regions=regions,
+            output_dir=output_dir,
+        )
+        lines.append("Result: PASS — identity and APIs are ready. CSAF will only read.")
+        lines.append(f"Next: {cmd}")
+        lines.append("      Then open out/*/executive-summary.html")
+    else:
+        lines.append("Result: PASS")
+        lines.append("Next: python3 invoke_assessment.py --self-check --output-dir out")
+        lines.append(f"      For a real {cloud} account: csaf-assess --guide --cloud {cloud}")
     return "\n".join(lines)
 
 
@@ -157,13 +213,21 @@ def plan_assessment(
         data = json.loads(catalog.read_text(encoding="utf-8"))
     else:
         data = json.loads(
-            files("csaf").joinpath("resources", "controls", CLOUDS[cloud]["catalog"]).read_text(encoding="utf-8")
+            files("csaf")
+            .joinpath("resources")
+            .joinpath("controls")
+            .joinpath(CLOUDS[cloud]["catalog"])
+            .read_text(encoding="utf-8")
         )
     baseline_data = (
         json.loads(baseline.read_text(encoding="utf-8"))
         if baseline.is_file()
         else json.loads(
-            files("csaf").joinpath("resources", "baselines", CLOUDS[cloud]["baseline"]).read_text(encoding="utf-8")
+            files("csaf")
+            .joinpath("resources")
+            .joinpath("baselines")
+            .joinpath(CLOUDS[cloud]["baseline"])
+            .read_text(encoding="utf-8")
         )
     )
     controls = [c for c in data.get("controls", []) if profile in c.get("profiles", [])]

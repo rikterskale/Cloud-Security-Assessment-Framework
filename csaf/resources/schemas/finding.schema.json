@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/csaf/finding.schema.json",
+  "$id": "https://raw.githubusercontent.com/rikterskale/Cloud-Security-Assessment-Framework/main/schemas/finding.schema.json",
   "title": "CSAF finding",
   "description": "A prioritized security finding derived from a failed or review control result. Findings are a strict subset of control results; NotTested and Error control states never produce findings.",
   "type": "object",

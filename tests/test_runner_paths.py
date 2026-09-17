@@ -13,7 +13,7 @@ from csaf.runner import EXIT_FATAL, EXIT_INCOMPLETE, EXIT_OK, RunConfig, run_ass
 
 REPO = Path(__file__).resolve().parent.parent
 CATALOG = str(REPO / "controls" / "control-catalog.json")
-BASELINE = str(REPO / "baselines" / "aws-cis-1.5.json")
+BASELINE = str(REPO / "baselines" / "aws-cis-5.0.json")
 
 
 def run(tmp, **overrides):
@@ -107,12 +107,15 @@ class TestFatalPaths(unittest.TestCase):
             result = run(Path(tmp) / "out", baseline_path=str(bad))
             self.assertEqual(result.exit_code, EXIT_FATAL)
 
-    def test_profile_selecting_no_controls_is_fatal(self):
+    def test_inventory_profile_runs_without_findings(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run(tmp, profile="Inventory")
-            self.assertEqual(result.exit_code, EXIT_FATAL)
-            self.assertIn("selected no controls", result.message)
-            self.assertFalse((Path(tmp) / "technical-report.json").exists())
+            self.assertIn(result.exit_code, (0, 2))
+            self.assertEqual(result.finding_count, 0)
+            self.assertTrue((Path(result.output_dir) / "control-results.jsonl").exists())
+            self.assertTrue((Path(result.output_dir) / "findings.json").exists())
+            findings = (Path(result.output_dir) / "findings.json").read_text(encoding="utf-8")
+            self.assertEqual(findings.strip(), "[]")
 
     def test_empty_engagement_key_is_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:

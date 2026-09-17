@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "catalogVersion": "2026.1",
+  "catalogVersion": "2026.2",
   "cloud": "K8s",
   "profiles": {
     "Inventory": "Collects configuration inventory without issuing most security conclusions.",
@@ -18,13 +18,16 @@
       "defaultSeverity": "CRITICAL",
       "expectedState": "Only recognized system service accounts/groups are bound to the cluster-admin ClusterRole.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:5.1.1",
-        "MITRE:T1078"
+        "MITRE:T1078",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3"
       ],
       "references": [
         "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
@@ -39,13 +42,16 @@
       "defaultSeverity": "CRITICAL",
       "expectedState": "No container outside kube-system/kube-public/kube-node-lease sets securityContext.privileged=true.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:5.2.1",
-        "MITRE:T1611"
+        "MITRE:T1611",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1"
       ],
       "references": [
         "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
@@ -60,13 +66,16 @@
       "defaultSeverity": "HIGH",
       "expectedState": "No pod outside kube-system/kube-public/kube-node-lease sets hostNetwork=true.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:5.2.4",
-        "MITRE:T1611"
+        "MITRE:T1611",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1"
       ],
       "references": [
         "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
@@ -81,12 +90,15 @@
       "defaultSeverity": "MEDIUM",
       "expectedState": "Every namespace outside kube-system/kube-public/kube-node-lease has at least one NetworkPolicy.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
-        "CIS-Kubernetes:5.3.2"
+        "CIS-Kubernetes:5.3.2",
+        "NIST-CSF-2.0:PR.IR",
+        "SOC2:CC6.6"
       ],
       "references": [
         "https://kubernetes.io/docs/concepts/services-networking/network-policies/"
@@ -101,12 +113,15 @@
       "defaultSeverity": "MEDIUM",
       "expectedState": "A documented, tested break-glass procedure exists for cluster-admin access.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
-        "NIST-800-53:CP-2"
+        "NIST-800-53:CP-2",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1"
       ],
       "references": []
     },
@@ -119,13 +134,16 @@
       "defaultSeverity": "HIGH",
       "expectedState": "The kube-apiserver runs with --audit-log-path and an audit policy that records security-relevant events.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:3.2.1",
-        "MITRE:T1562.008"
+        "MITRE:T1562.008",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1"
       ],
       "references": [
         "https://kubernetes.io/docs/tasks/debug/debug-cluster/audit/"
@@ -140,13 +158,16 @@
       "defaultSeverity": "HIGH",
       "expectedState": "An EncryptionConfiguration encrypts Secret resources at rest in etcd using an aescbc or KMS provider (not identity-only).",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:3.1.1",
-        "MITRE:T1552.007"
+        "MITRE:T1552.007",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1"
       ],
       "references": [
         "https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/"
@@ -161,16 +182,162 @@
       "defaultSeverity": "HIGH",
       "expectedState": "Pod Security Admission (or an equivalent controller such as OPA/Kyverno) enforces at least the 'baseline' standard on workload namespaces.",
       "profiles": [
+        "Inventory",
         "Assessment",
         "Validation",
         "AdversarySimulation"
       ],
       "mappings": [
         "CIS-Kubernetes:5.2.2",
-        "MITRE:T1610"
+        "MITRE:T1610",
+        "NIST-CSF-2.0:GV.OC",
+        "SOC2:CC9.1"
       ],
       "references": [
         "https://kubernetes.io/docs/concepts/security/pod-security-admission/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-POD-003",
+      "title": "Workloads do not use hostPID",
+      "category": "Pod Security",
+      "module": "pods",
+      "check": "host_pid_pods",
+      "defaultSeverity": "HIGH",
+      "expectedState": "No workload pod sets hostPID: true.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.2",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "MITRE:T1611"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-POD-004",
+      "title": "Workloads do not use hostIPC",
+      "category": "Pod Security",
+      "module": "pods",
+      "check": "host_ipc_pods",
+      "defaultSeverity": "MEDIUM",
+      "expectedState": "No workload pod sets hostIPC: true.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.3",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-POD-005",
+      "title": "Workloads do not mount hostPath volumes",
+      "category": "Pod Security",
+      "module": "pods",
+      "check": "host_path_volumes",
+      "defaultSeverity": "HIGH",
+      "expectedState": "No workload pod mounts a hostPath volume.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.6",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "MITRE:T1611"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/storage/volumes/#hostpath"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-POD-006",
+      "title": "Containers do not allow privilege escalation",
+      "category": "Pod Security",
+      "module": "pods",
+      "check": "privilege_escalation",
+      "defaultSeverity": "HIGH",
+      "expectedState": "No container sets allowPrivilegeEscalation: true.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.2.5",
+        "NIST-CSF-2.0:PR.PS",
+        "SOC2:CC6.1",
+        "MITRE:T1548"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/concepts/security/pod-security-standards/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-SA-001",
+      "title": "Default service accounts do not automount tokens",
+      "category": "RBAC",
+      "module": "service_accounts",
+      "check": "default_sa_automount",
+      "defaultSeverity": "MEDIUM",
+      "expectedState": "The default service account in every workload namespace sets automountServiceAccountToken: false.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.1.5",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.1",
+        "MITRE:T1078.004"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
+      ]
+    },
+    {
+      "id": "CSAF-K8S-RBAC-002",
+      "title": "No non-system subject is bound to a wildcard ClusterRole",
+      "category": "RBAC",
+      "module": "rbac",
+      "check": "wildcard_verbs",
+      "defaultSeverity": "HIGH",
+      "expectedState": "ClusterRoleBindings for non-system subjects do not reference ClusterRoles that grant * verbs or * resources.",
+      "profiles": [
+        "Inventory",
+        "Assessment",
+        "Validation",
+        "AdversarySimulation"
+      ],
+      "mappings": [
+        "CIS-Kubernetes:5.1.1",
+        "NIST-CSF-2.0:PR.AA",
+        "SOC2:CC6.3",
+        "MITRE:T1078.004"
+      ],
+      "references": [
+        "https://kubernetes.io/docs/reference/access-authn-authz/rbac/"
       ]
     }
   ]

@@ -4,7 +4,7 @@ guide_schema_version: 1
 platform: windows
 canonical_path: docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md
 project_name: Cloud Security Assessment Framework (CSAF)
-target_release: "latest locally reviewed version: 1.0.0 (untagged, commit 2732fc7)"
+target_release: "1.1.0 (untagged until GitHub Release)"
 target_commit: 2732fc72c6e4a1d3ab6e1a17fb1ce28fc9560936
 support_status: native_supported
 alternative_support_paths: []
@@ -16,12 +16,12 @@ maintainer_source_of_truth: README.md
 known_limitations:
   - "No clean Windows host was available during review; commands are statically verified against the code and the README PowerShell activation instructions, not re-run on Windows."
   - "The equivalent offline run was verified live on Linux; behavior is identical because CSAF is pure Python."
-  - "Update/rollback assume a published v1.0.0 tag, which does not yet exist; commit-based rollback is provided instead."
+  - "Update/rollback assume a published v1.1.0 tag, which does not yet exist; commit-based rollback is provided instead."
 ---
 
 # CSAF Windows Novice Usability Guide
 
-> Quickest first run from a checkout: `& .\scripts\quickstart.ps1`. It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
+> Quickest first run from a checkout: `py -3 scripts\install.py` (or `& .\scripts\quickstart.ps1`). It creates `.venv`, installs locked dependencies, and runs the safe offline `--self-check`. An `[INCOMPLETE]` result / exit code 2 is expected for that demo.
 
 ## 1. About This Guide
 
@@ -206,7 +206,7 @@ python test_dependencies.py
 python invoke_assessment.py --version
 ```
 
-Expected output: `CSAF v1.0.0`
+Expected output: `CSAF v1.1.0`
 
 ## 19. Complete the First Safe Successful Run
 
@@ -299,7 +299,7 @@ To fully remove CSAF, also delete the repository folder: `cd ..; Remove-Item -Re
 git pull; .venv\Scripts\Activate.ps1; pip install --require-hashes -r requirements-lock.txt; pip install --no-deps .
 ```
 
-**Rollback (by commit, since no `v1.0.0` tag is published yet):**
+**Rollback (by commit, since no `v1.1.0` tag is published yet):**
 
 **Command ID:** `WIN-CMD-018` · **Run in:** PowerShell · **Working directory:** repo folder · **Privilege:** standard user · **Internet:** not required · **Safe to copy/paste:** only after replacement · **Replace:** `KNOWN_GOOD_COMMIT` → a commit you trust (example: `a5771ab`) · **Side effects:** changes checked-out code · **Validation status:** statically verified
 
@@ -307,7 +307,7 @@ git pull; .venv\Scripts\Activate.ps1; pip install --require-hashes -r requiremen
 git checkout KNOWN_GOOD_COMMIT
 ```
 
-When `v1.0.0` is tagged, `git checkout v1.0.0` becomes the supported rollback.
+When `v1.1.0` is tagged, `git checkout v1.1.0` becomes the supported rollback.
 
 ## 26. Troubleshooting Matrix
 
@@ -383,5 +383,5 @@ When `v1.0.0` is tagged, `git checkout v1.0.0` becomes the supported rollback.
 
 - **Validated on:** 2026-08-01. **No clean Windows host was available**, so every Windows command is *statically verified* against the source and the project's documented PowerShell instructions (`README.md`).
 - **Cross-checked live on Linux:** the offline first run (`--self-check`) produced the shown output on Ubuntu 22.04 / Python 3.10.12; Windows behavior is expected to match because CSAF is pure Python.
-- **Known limitations:** cloud assessments require your own read-only credentials (not exercised); `v1.0.0` is not yet tagged, so rollback uses a commit (section 25); Windows-native re-validation is recommended before relying on this guide in production (tracked as roadmap item "cross-OS CI" and finding `REV-DX-002`).
+- **Known limitations:** cloud assessments require your own read-only credentials (not exercised); `v1.1.0` is not yet tagged, so rollback uses a commit (section 25); Windows-native re-validation is recommended before relying on this guide in production (tracked as roadmap item "cross-OS CI" and finding `REV-DX-002`).
 - **Support boundary:** questions and issues go to the project's GitHub repository; security issues follow `SECURITY.md` (private reporting).

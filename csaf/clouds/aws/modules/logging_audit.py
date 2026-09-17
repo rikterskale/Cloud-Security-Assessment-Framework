@@ -85,3 +85,33 @@ class LoggingModule(AssessmentModule):
             resource_type="guardduty",
             resource_id=ctx.region,
         )
+
+    def securityhub_enabled(self, control, ctx: CheckContext):
+        hub = ctx.session.client("securityhub", ctx.region)
+        try:
+            described = hub.describe_hub()
+        except Exception as exc:
+            name = type(exc).__name__
+            code = ""
+            response = getattr(exc, "response", None)
+            if isinstance(response, dict):
+                code = response.get("Error", {}).get("Code", "")
+            if code in {"InvalidAccessException", "ResourceNotFoundException"} or "not subscribed" in str(exc).lower():
+                return self.result(
+                    control,
+                    ctx,
+                    "Fail",
+                    f"Security Hub is not enabled in {ctx.region} ({code or name})",
+                    resource_type="securityhub",
+                    resource_id=ctx.region,
+                )
+            raise
+        hub_arn = described.get("HubArn") if isinstance(described, dict) else None
+        return self.result(
+            control,
+            ctx,
+            "Pass",
+            f"Security Hub enabled: {hub_arn or ctx.region}",
+            resource_type="securityhub",
+            resource_id=ctx.region,
+        )

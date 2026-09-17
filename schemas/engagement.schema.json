@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/csaf/engagement.schema.json",
+  "$id": "https://raw.githubusercontent.com/rikterskale/Cloud-Security-Assessment-Framework/main/schemas/engagement.schema.json",
   "title": "CSAF engagement authorization",
   "description": "Binds an assessment run to an authorized scope, time window, and approval state. The Validation and AdversarySimulation profiles refuse to run unless activeValidationApproved is true and the current time is inside the window.",
   "type": "object",

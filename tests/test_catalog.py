@@ -28,6 +28,12 @@ class TestCatalog(unittest.TestCase):
         self.assertTrue(vo.isdisjoint(assessment))
         self.assertTrue(vo.issubset(validation))
 
+    def test_inventory_selects_assessment_controls_without_validation_only(self):
+        inventory = {c.id for c in self.catalog.for_profile("Inventory")}
+        assessment = {c.id for c in self.catalog.for_profile("Assessment")}
+        self.assertEqual(inventory, assessment)
+        self.assertTrue(inventory)
+
     def test_unknown_profile_raises(self):
         with self.assertRaises(ValueError):
             self.catalog.for_profile("Nope")

@@ -52,7 +52,7 @@ class TestBaseline(unittest.TestCase):
             self.assertEqual(baseline.get("accessKeyMaxAgeDays"), 30)
 
     def test_shipped_cis_baseline_loads_and_covers_defaults(self):
-        baseline = Baseline.load(REPO / "baselines" / "aws-cis-1.5.json")
+        baseline = Baseline.load(REPO / "baselines" / "aws-cis-5.0.json")
         for key in DEFAULT_THRESHOLDS:
             self.assertIsNotNone(baseline.get(key), f"shipped baseline missing threshold {key}")
 

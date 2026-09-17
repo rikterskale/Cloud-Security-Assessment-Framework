@@ -10,6 +10,7 @@ permissions:
   contents: write
   id-token: write
   attestations: write
+  packages: write
 
 jobs:
   release:
@@ -99,3 +100,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes
+      - name: Publish to PyPI (Trusted Publishing)
+        if: github.event_name == 'push'
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist
+          skip-existing: true
+      - name: Publish Linux image to GHCR
+        if: github.event_name == 'push'
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          image="ghcr.io/rikterskale/cloud-saf"
+          tag="${GITHUB_REF_NAME#v}"
+          docker build --pull --tag "$image:$tag" --tag "$image:$tag-${GITHUB_SHA}" .
+          docker push "$image:$tag"
+          docker push "$image:$tag-${GITHUB_SHA}"
+          digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image:$tag")
+          echo "Published $digest"

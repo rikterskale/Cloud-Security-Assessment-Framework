@@ -89,10 +89,10 @@ class TestFullRunConformance(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.outputs = {}
         inputs = {
-            "aws": ("control-catalog.json", "aws-cis-1.5.json"),
-            "azure": ("control-catalog-azure.json", "azure-cis-2.0.json"),
-            "gcp": ("control-catalog-gcp.json", "gcp-cis-1.3.json"),
-            "k8s": ("control-catalog-k8s.json", "k8s-cis-1.8.json"),
+            "aws": ("control-catalog.json", "aws-cis-5.0.json"),
+            "azure": ("control-catalog-azure.json", "azure-cis-6.0.json"),
+            "gcp": ("control-catalog-gcp.json", "gcp-cis-5.0.json"),
+            "k8s": ("control-catalog-k8s.json", "k8s-cis-1.11.json"),
         }
         for cloud, (catalog, baseline) in inputs.items():
             output = Path(cls.tmp.name) / cloud

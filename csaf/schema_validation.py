@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from .resource_paths import read_resource_text
 
 
-@lru_cache(maxsize=None)
+@cache
 def load_schema(name: str) -> dict:
     """Load and verify a packaged Draft 2020-12 schema."""
     try:

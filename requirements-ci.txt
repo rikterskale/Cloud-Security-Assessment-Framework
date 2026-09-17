@@ -8,3 +8,4 @@ colorama>=0.4.6; os_name == "nt"
 twine>=5.1
 setuptools>=68
 wheel>=0.43
+mypy>=1.10
