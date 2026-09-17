@@ -5,10 +5,10 @@ All notable changes to CSAF are documented here.
 The Python distribution name is **cloud-saf**. The import package remains `csaf`.
 Do not `pip install csaf` — that is the OASIS Common Security Advisory Framework.
 
-## 1.1.0 — Unreleased
+## 1.1.0 — 2026-09-17
 
-`pyproject.toml` declares version `1.1.0`. Tag `v1.1.0` when cutting the GitHub
-Release, PyPI publish, and GHCR image.
+First tagged GitHub Release, PyPI publish (`cloud-saf`), and GHCR image
+`ghcr.io/rikterskale/cloud-saf:1.1.0`.
 
 ### Added
 
@@ -28,10 +28,13 @@ Release, PyPI publish, and GHCR image.
 
 - Distribution name renamed from `csaf` to `cloud-saf` to avoid the PyPI collision with OASIS CSAF.
 - `--preflight` treats the selected cloud's SDK as required rather than optional.
-- README five-minute path leads with `scripts/install.py`; pipx/GHCR are documented as unavailable until tag `v1.1.0`.
+- README five-minute path leads with `scripts/install.py`; packaged installers are `pipx install cloud-saf==1.1.0` and `ghcr.io/rikterskale/cloud-saf:1.1.0`.
 - AWS `CIS-AWS:*` mappings retargeted to CIS Foundations Benchmark v5.0.0 recommendation numbers.
 - Live AWS preflight probes the read APIs the scan uses (S3, EC2, CloudTrail, Config, GuardDuty, Security Hub, KMS, RDS, Secrets Manager), not only STS and IAM summary.
 - CLI prints severity-ranked findings with remediation after a run.
+- `scripts/install.py` bootstraps pip, uses text preflight, and verifies `csaf-assess --version` before the demo run.
+- Live Azure/GCP/Kubernetes preflight probes the read APIs the scan uses (ARM storage/NSG/VM/Key Vault/SQL/RBAC/diagnostics; GCP IAM/storage/compute/logging/KMS/SQL; Kubernetes pods/RBAC/NetworkPolicy), not only identity.
+- Runner fatals (unauthorized profile/scope, unknown cloud, multi-account AWS, secret-discovery) emit `CsafError` cause, resource, and fix.
 
 ### Deprecated
 

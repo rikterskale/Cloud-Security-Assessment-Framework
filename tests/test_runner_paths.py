@@ -62,6 +62,9 @@ class TestAuthorizationPaths(unittest.TestCase):
             result = run(tmp, profile="Validation")
             self.assertEqual(result.exit_code, EXIT_FATAL)
             self.assertIn("Unauthorized profile", result.message)
+            self.assertIn("CSAF-E005", result.message)
+            self.assertIn("Resource: --profile", result.message)
+            self.assertIn("Fix:", result.message)
 
     def test_validation_with_approved_in_window_engagement_runs(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -49,7 +49,7 @@ CSAF supports **AWS, Azure, GCP, and Kubernetes** end-to-end.
 > **New to the terminal, Git, or Python? Start with the guide for your operating system: [Windows](docs/guides/WINDOWS_NOVICE_USABILITY_GUIDE.md) · [Linux](docs/guides/LINUX_NOVICE_USABILITY_GUIDE.md).**
 > Each guide walks you from an unprepared computer to a verified first result, with troubleshooting, cleanup, and uninstall steps. Both assume no prior experience and start with the safe offline demo.
 
-**Need:** Git, Python 3.10+, and network access once (to install locked dependencies). **No cloud account.**
+**Need:** Git, Python 3.10+, and network access once (to install locked dependencies). **No cloud account. No extra pip commands.**
 
 ```bash
 git clone https://github.com/rikterskale/Cloud-Security-Assessment-Framework.git
@@ -61,9 +61,9 @@ python3 scripts/install.py
 py -3 scripts\install.py
 ```
 
-That command creates `.venv`, installs `requirements-lock.txt`, runs local preflight, and executes `--self-check`. Expect `[INCOMPLETE]` and installer exit `0` (the demo's process exit `2` is mapped to success because one attestation control is intentionally untested).
+That is the entire first-run path. The installer creates `.venv`, installs `requirements-lock.txt` (hash-locked, every provider SDK included), bootstraps `pip` if needed, runs local preflight, and executes `--self-check`.
 
-Then open `out/*/executive-summary.html`.
+**Success:** installer exit `0`, and `out/*/executive-summary.html` exists. Expect `[INCOMPLETE]` inside the demo: one attestation control is intentionally untested, so the demo process exits `2` and the installer maps that to success.
 
 Equivalent wrappers: `sh scripts/quickstart.sh` or `& .\scripts\quickstart.ps1`.
 
@@ -75,18 +75,22 @@ python3 invoke_assessment.py --self-check --output-dir out
 
 Expect `[INCOMPLETE]` and exit code `2` — that is success for the demo (one control is intentionally left untested).
 
-### Published installers (not available until tag v1.1.0)
+### Published installers (v1.1.0)
 
-`pyproject.toml` declares version `1.1.0`. There is **no GitHub Release, PyPI project, or GHCR image yet**. Until `v1.1.0` is tagged and the Release workflow succeeds, do not use `pipx install cloud-saf` or `docker pull ghcr.io/rikterskale/cloud-saf`. Use `scripts/install.py` or build the local container:
+After the GitHub Release for tag `v1.1.0` succeeds:
 
 ```bash
-docker build -t csaf:local .
+pipx install cloud-saf==1.1.0
+# or
+docker pull ghcr.io/rikterskale/cloud-saf:1.1.0
 docker run --rm --read-only --cap-drop ALL --tmpfs /tmp \
   --user "$(id -u):$(id -g)" -v "${PWD}/out:/work/out" \
-  csaf:local --self-check --output-dir /work/out
+  ghcr.io/rikterskale/cloud-saf:1.1.0 --self-check --output-dir /work/out
 ```
 
-Homebrew (`Formula/cloud-saf.rb`) is source-only (`brew install --HEAD Formula/cloud-saf.rb`) until a tagged tarball exists.
+From a source checkout, `python3 scripts/install.py` (Windows: `py -3 scripts\install.py`) still works with no extra pip commands.
+
+Homebrew (`Formula/cloud-saf.rb`) can install from the tagged tarball once the GitHub Release exists; until a bottle is published, `brew install --HEAD Formula/cloud-saf.rb` remains the source path.
 
 ## Guided live assessment
 
@@ -235,8 +239,8 @@ RBAC (cluster-admin and wildcard roles), pod security (privileged, hostNetwork/P
 | `[CSAF-E004]` AccessDenied | identity cannot read an API | Attach AWS `SecurityAudit` (or Azure Reader + Security Reader / GCP `roles/viewer`) |
 | `[INCOMPLETE]` / exit 2 on `--self-check` | demo leaves one control untested | None — this is success |
 | `Fatal: Unauthorized profile` | Validation without a signed engagement | Use `--profile Assessment`, or sign an engagement |
-| `pip install csaf` is the wrong tool | PyPI name collision | `python scripts/install.py` (then, after v1.1.0 is tagged, `pipx install cloud-saf`) |
-| `pipx install cloud-saf` 404 | no GitHub Release / PyPI publish yet | Use `python scripts/install.py` |
+| `pip install csaf` is the wrong tool | PyPI name collision | `pipx install cloud-saf==1.1.0` or `python scripts/install.py` |
+| `pipx install cloud-saf` 404 | Release workflow has not published yet | Use `python scripts/install.py`, then retry `pipx install cloud-saf==1.1.0` |
 
 Need a traceback? Re-run with `--log-level DEBUG`.
 
@@ -249,10 +253,10 @@ No. `python scripts/install.py` uses synthetic data for the first run.
 No. Mutating verbs are blocked in process.
 
 **Can I `pip install csaf` from PyPI?**
-Not this project. The distribution name is `cloud-saf`. It is not on PyPI until tag `v1.1.0`.
+Not this project. The distribution name is `cloud-saf`. Install with `pipx install cloud-saf==1.1.0`.
 
 **Is there a tagged release?**
-`pyproject.toml` declares `1.1.0`; cut `v1.1.0` via [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) after CI is green.
+Yes. Tag `v1.1.0` is the first GitHub Release. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
 
 **What is `authorizedSourceAddresses`?**
 An engagement field this local tool cannot prove, so an active run containing this restriction **fails closed**. Enforce the restriction outside CSAF or omit the field.
@@ -356,7 +360,7 @@ wheel/sdist smoke, 90% coverage.
 
 `.github/workflows/release.yml` attests artifacts, publishes a GitHub Release, publishes
 `cloud-saf` to PyPI (Trusted Publishing), and pushes `ghcr.io/rikterskale/cloud-saf:<version>`.
-That workflow has not produced a release until a `v*` tag is pushed on a green `main`.
+Tag `v1.1.0` is the first release cut from that workflow.
 
 ## Extending to other clouds
 

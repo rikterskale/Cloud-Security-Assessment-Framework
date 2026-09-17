@@ -12,16 +12,17 @@ This installer never calls a cloud API unless --live is passed.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 REQUIRED_PYTHON = (3, 10)
 SELFCHECK_INCOMPLETE = 2
+PYPROJECT = ROOT / "pyproject.toml"
 
 # Child processes must emit UTF-8. Completions and reports break on UTF-16 consoles.
 _CHILD_ENV = {
@@ -64,6 +65,27 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def ensure_checkout() -> int:
+    if not PYPROJECT.is_file():
+        return _fail(
+            "CSAF-E003",
+            "This installer must run from a Cloud-Security-Assessment-Framework checkout.",
+            str(ROOT),
+            "git clone https://github.com/rikterskale/Cloud-Security-Assessment-Framework.git"
+            " && cd Cloud-Security-Assessment-Framework && python scripts/install.py",
+        )
+    text = PYPROJECT.read_text(encoding="utf-8")
+    if 'name = "cloud-saf"' not in text:
+        return _fail(
+            "CSAF-E003",
+            "pyproject.toml is not the cloud-saf project.",
+            str(PYPROJECT),
+            "cd into the CSAF repository root, then: python scripts/install.py",
+        )
+    print(f"[PASS] repository root {ROOT}")
+    return 0
+
+
 def ensure_python(executable: str) -> int:
     proc = _run(
         [executable, "-c", "import sys; print('%d.%d' % sys.version_info[:2])"],
@@ -87,6 +109,15 @@ def ensure_python(executable: str) -> int:
             executable,
             "Install Python 3.10 or newer, then: py -3.12 scripts/install.py   (Windows) or python3.12 scripts/install.py",
         )
+    venv_probe = _run([executable, "-c", "import venv"], capture_output=True, text=True)
+    if venv_probe.returncode != 0:
+        return _fail(
+            "CSAF-E001",
+            "The venv module is missing from this Python install.",
+            executable,
+            "Windows: reinstall Python 3.12 and tick pip and py launcher. "
+            "Debian/Ubuntu: sudo apt-get install python3-venv python3-pip",
+        )
     print(f"[PASS] Python {major}.{minor} ({executable})")
     return 0
 
@@ -106,6 +137,33 @@ def create_venv(executable: str) -> int:
     if not py.is_file():
         return _fail("CSAF-E001", "Virtualenv Python is missing.", str(py), f"{executable} -m venv .venv")
     print(f"[PASS] virtualenv {py}")
+    return 0
+
+
+def ensure_pip() -> int:
+    py = str(_venv_python())
+    probe = _run([py, "-m", "pip", "--version"], capture_output=True, text=True)
+    if probe.returncode == 0:
+        print(f"[PASS] pip ({(probe.stdout or '').strip() or 'ok'})")
+        return 0
+    print("[*] Bootstrapping pip with ensurepip")
+    bootstrap = _run([py, "-m", "ensurepip", "--upgrade"])
+    if bootstrap.returncode != 0:
+        return _fail(
+            "CSAF-E001",
+            "pip is not available in the virtualenv and ensurepip failed.",
+            py,
+            f"{py} -m ensurepip --upgrade",
+        )
+    retry = _run([py, "-m", "pip", "--version"], capture_output=True, text=True)
+    if retry.returncode != 0:
+        return _fail(
+            "CSAF-E001",
+            "pip is still missing after ensurepip.",
+            py,
+            f"{py} -m ensurepip --upgrade && {py} -m pip install --upgrade pip",
+        )
+    print("[PASS] pip bootstrapped")
     return 0
 
 
@@ -145,35 +203,29 @@ def _assess_cmd() -> list[str]:
     return [str(_venv_python()), str(ROOT / "invoke_assessment.py")]
 
 
-def local_preflight(cloud: str, output_dir: str) -> int:
-    cmd = [*_assess_cmd(), "--preflight", "--cloud", cloud, "--output-dir", output_dir, "--output-format", "json"]
+def verify_console_script() -> int:
+    cmd = [*_assess_cmd(), "--version"]
     proc = _run(cmd, capture_output=True, text=True)
-    try:
-        checks = json.loads(proc.stdout or "[]")
-    except json.JSONDecodeError:
-        print(proc.stdout)
-        print(proc.stderr)
-        return _fail(
-            "CSAF-E999",
-            "Local preflight did not return JSON.",
-            "csaf-assess --preflight",
-            f"{_venv_python()} invoke_assessment.py --preflight --output-format json",
-        )
-    blocked = False
-    for check in checks:
-        status = check.get("status", "?")
-        name = check.get("name", "?")
-        detail = check.get("detail", "")
-        fix = check.get("fix", "")
-        print(f"[{status}] {name}: {detail}")
-        if fix:
-            print(f"    Fix: {fix}")
-        if check.get("required", True) and status == "FAIL":
-            blocked = True
-    if blocked or proc.returncode == 1:
+    output = (proc.stdout or "") + (proc.stderr or "")
+    if proc.returncode != 0 or "CSAF v" not in output:
         return _fail(
             "CSAF-E001",
-            "Local preflight failed.",
+            "csaf-assess --version failed after install.",
+            " ".join(cmd),
+            f"{' '.join(_assess_cmd())} --version",
+        )
+    print(f"[PASS] {output.strip()}")
+    return 0
+
+
+def local_preflight(cloud: str, output_dir: str) -> int:
+    cmd = [*_assess_cmd(), "--preflight", "--cloud", cloud, "--output-dir", output_dir, "--output-format", "text"]
+    print(f"[*] {' '.join(cmd)}")
+    proc = _run(cmd)
+    if proc.returncode != 0:
+        return _fail(
+            "CSAF-E001",
+            "Local preflight failed (Python, deps, catalog, or output directory).",
             "python/deps/catalog/output-dir",
             f"{' '.join(_assess_cmd())} --preflight --cloud {cloud} --output-format text",
         )
@@ -250,12 +302,16 @@ def run_self_check(cloud: str, output_dir: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    started = time.monotonic()
     args = parse_args(argv)
     print("CSAF installer (no mutating cloud calls)\n")
     for step in (
+        ensure_checkout,
         lambda: ensure_python(args.python),
         lambda: create_venv(args.python),
+        ensure_pip,
         install_locked,
+        verify_console_script,
         lambda: local_preflight(args.cloud, args.output_dir),
     ):
         code = step()
@@ -272,11 +328,13 @@ def main(argv: list[str] | None = None) -> int:
     activate = r".venv\Scripts\Activate.ps1" if os.name == "nt" else "source .venv/bin/activate"
     run_dir = _latest_run_dir(args.output_dir)
     html = str((run_dir / "executive-summary.html") if run_dir else Path(args.output_dir) / "*/executive-summary.html")
-    print("\nWhat just happened: locked dependencies installed; first assessment written.")
+    elapsed = int(time.monotonic() - started)
+    print("\n[PASS] First assessment complete (no manual dependency fixes).")
+    print(f"What just happened: locked dependencies installed; first assessment written ({elapsed}s).")
     print(f"Next: {activate}")
     print(f"      Open {html}")
     print(f"      For a real {args.cloud} account: csaf-assess --guide --cloud {args.cloud}")
-    print("      pipx/Homebrew/GHCR are not a substitute until a GitHub Release tag exists.")
+    print("      Packaged install after the GitHub Release: pipx install cloud-saf==1.1.0")
     return 0
 
 

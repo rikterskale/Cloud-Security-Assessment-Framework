@@ -113,6 +113,12 @@ class RunResult:
     message: str
 
 
+def _fatal_result(output_dir: str, err) -> RunResult:
+    from .errors import format_error
+
+    return RunResult(EXIT_FATAL, str(output_dir), {}, {}, 0, False, f"Fatal: {format_error(err)}")
+
+
 def source_revision() -> str:
     """Return the immutable source revision when supplied or locally discoverable."""
     configured = os.environ.get("CSAF_SOURCE_REVISION", "").strip()
@@ -153,17 +159,17 @@ def run_assessment(config: RunConfig) -> RunResult:
     if config.cloud == "gcp" and len(config.projects) > 1:
         return _run_multi_scope(config, "project_id", config.projects)
     if config.cloud == "aws" and len(config.accounts) > 1:
-        return RunResult(
-            EXIT_FATAL,
+        from .errors import ERROR_CODES, CsafError
+
+        return _fatal_result(
             config.output_dir,
-            {},
-            {},
-            0,
-            False,
-            "Fatal: multiple AWS accounts require a campaign with per-account aws_profile "
-            "targets. sts:AssumeRole is blocked by the read-only guardrail.\n"
-            "    Resource: --accounts\n"
-            "    Fix: csaf-campaign create org.json --campaign-id org --targets-file targets.json",
+            CsafError(
+                ERROR_CODES["authorization"],
+                "multiple AWS accounts require a campaign with per-account aws_profile "
+                "targets. sts:AssumeRole is blocked by the read-only guardrail.",
+                "--accounts",
+                "csaf-campaign create org.json --campaign-id org --targets-file targets.json",
+            ),
         )
 
     if not config.self_check and not config.check_only and not config.skip_live_preflight:
@@ -214,9 +220,19 @@ def run_assessment(config: RunConfig) -> RunResult:
 
     try:
         if config.cloud not in CLOUDS:
+            from .errors import ERROR_CODES, CsafError
+
             logger.error("runner", f"Unknown cloud '{config.cloud}'. Choose one of: {sorted(CLOUDS)}.")
             logger.close()
-            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unknown cloud: {config.cloud}")
+            return _fatal_result(
+                str(out_dir),
+                CsafError(
+                    ERROR_CODES["api"],
+                    f"Unknown cloud '{config.cloud}'. Choose one of: {sorted(CLOUDS)}.",
+                    config.cloud,
+                    "csaf-assess --cloud aws|azure|gcp|k8s",
+                ),
+            )
         cloud = CLOUDS[config.cloud]
         cloud_label = cloud["label"]
 
@@ -238,23 +254,51 @@ def run_assessment(config: RunConfig) -> RunResult:
         allowed, reason = engagement.authorize_profile(config.profile, signing_key=signing_key)
         logger.info("engagement", f"Profile '{config.profile}' authorization: {reason}")
         if not allowed:
+            from .errors import ERROR_CODES, CsafError
+
             logger.error("engagement", f"Profile '{config.profile}' is not authorized: {reason}")
             logger.close()
-            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized profile: {reason}")
+            return _fatal_result(
+                str(out_dir),
+                CsafError(
+                    ERROR_CODES["authorization"],
+                    f"Unauthorized profile: {reason}",
+                    "--profile",
+                    "csaf-assess --profile Assessment\n"
+                    "         Or: csaf-sign-engagement --engagement engagement.json --key-file engagement.key",
+                ),
+            )
 
         if config.allow_secret_discovery:
+            from .errors import ERROR_CODES, CsafError
+
             if config.cloud != "azure" or config.profile != "Validation":
                 message = "--allow-secret-discovery is supported only for the Azure Validation profile."
                 logger.error("secret-discovery", message)
                 logger.close()
-                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
+                return _fatal_result(
+                    str(out_dir),
+                    CsafError(
+                        ERROR_CODES["authorization"],
+                        message,
+                        "--allow-secret-discovery",
+                        "csaf-assess --cloud azure --profile Validation --allow-secret-discovery "
+                        "--engagement engagement.json --engagement-key-file engagement.key",
+                    ),
+                )
             discovery_allowed, discovery_reason = engagement.authorize_secret_discovery(signing_key)
             logger.info("secret-discovery", f"Authorization: {discovery_reason}")
             if not discovery_allowed:
                 logger.error("secret-discovery", f"Not authorized: {discovery_reason}")
                 logger.close()
-                return RunResult(
-                    EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized secret discovery: {discovery_reason}"
+                return _fatal_result(
+                    str(out_dir),
+                    CsafError(
+                        ERROR_CODES["authorization"],
+                        f"Unauthorized secret discovery: {discovery_reason}",
+                        "--allow-secret-discovery",
+                        "csaf-sign-engagement --engagement engagement.json --key-file engagement.key",
+                    ),
                 )
 
         active_profile = config.profile in ("Validation", "AdversarySimulation")
@@ -267,13 +311,23 @@ def run_assessment(config: RunConfig) -> RunResult:
             if len(engagement.authorized_accounts) == 1:
                 requested_account = engagement.authorized_accounts[0]
             else:
+                from .errors import ERROR_CODES, CsafError
+
                 message = (
                     f"Active {cloud_label} profiles require an explicit target identifier or exactly one "
                     "authorizedAccounts entry."
                 )
                 logger.error("engagement", message)
                 logger.close()
-                return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
+                return _fatal_result(
+                    str(out_dir),
+                    CsafError(
+                        ERROR_CODES["authorization"],
+                        message,
+                        "--subscription / --project / --kube-context",
+                        "csaf-assess --guide --cloud " + config.cloud,
+                    ),
+                )
         scope_allowed, scope_reason = engagement.authorize_scope(
             cloud_label,
             config.regions,
@@ -282,21 +336,42 @@ def run_assessment(config: RunConfig) -> RunResult:
         )
         logger.info("engagement", f"Requested scope authorization: {scope_reason}")
         if not scope_allowed:
+            from .errors import ERROR_CODES, CsafError
+
             logger.error("engagement", f"Requested scope is not authorized: {scope_reason}")
             logger.close()
-            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, f"Unauthorized scope: {scope_reason}")
+            return _fatal_result(
+                str(out_dir),
+                CsafError(
+                    ERROR_CODES["authorization"],
+                    f"Unauthorized scope: {scope_reason}",
+                    "engagement",
+                    "csaf-assess --profile Assessment\n"
+                    "         Or omit authorizedSourceAddresses / widen authorizedAccounts in the engagement.",
+                ),
+            )
 
         controls = catalog.for_profile(config.profile)
         # Honour baseline not-applicable exclusions.
         controls = [c for c in controls if c.id not in baseline.not_applicable_controls]
         if not controls:
+            from .errors import ERROR_CODES, CsafError
+
             message = (
                 f"Profile '{config.profile}' selected no controls for cloud '{config.cloud}'. "
                 "Choose a supported profile or provide a catalog with controls for that profile."
             )
             logger.error("catalog", message)
             logger.close()
-            return RunResult(EXIT_FATAL, str(out_dir), {}, {}, 0, False, message)
+            return _fatal_result(
+                str(out_dir),
+                CsafError(
+                    ERROR_CODES["file"],
+                    message,
+                    "--catalog",
+                    f"csaf-assess --plan --cloud {config.cloud} --profile {config.profile}",
+                ),
+            )
         selected_ids = {c.id for c in controls}
         logger.info("catalog", f"Selected {len(controls)} controls for profile '{config.profile}'.")
 

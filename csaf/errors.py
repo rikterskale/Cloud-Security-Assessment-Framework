@@ -91,6 +91,33 @@ _AWS_API_PROBES = (
     ("secretsmanager", "ListSecrets", lambda c: c.list_secrets(MaxResults=1)),
 )
 
+_AZURE_ARM_PROBES = (
+    ("Microsoft.Storage/storageAccounts", "2023-01-01", "storage"),
+    ("Microsoft.Network/networkSecurityGroups", "2023-09-01", "network"),
+    ("Microsoft.Compute/virtualMachines", "2023-09-01", "compute"),
+    ("Microsoft.KeyVault/vaults", "2023-07-01", "keyvault"),
+    ("Microsoft.Sql/servers", "2021-11-01", "sql"),
+    ("Microsoft.Authorization/roleDefinitions", "2022-04-01", "identity"),
+    ("Microsoft.Insights/diagnosticSettings", "2021-05-01-preview", "monitor"),
+)
+
+_GCP_API_PROBES = (
+    ("iam:getIamPolicy", "POST", "https://cloudresourcemanager.googleapis.com/v1/projects/{project}:getIamPolicy"),
+    ("storage.buckets.list", "GET", "https://storage.googleapis.com/storage/v1/b?project={project}"),
+    (
+        "compute.instances.aggregatedList",
+        "GET",
+        "https://compute.googleapis.com/compute/v1/projects/{project}/aggregated/instances?maxResults=1",
+    ),
+    ("logging.sinks.list", "GET", "https://logging.googleapis.com/v2/projects/{project}/sinks"),
+    (
+        "cloudkms.keyRings.list",
+        "GET",
+        "https://cloudkms.googleapis.com/v1/projects/{project}/locations/global/keyRings",
+    ),
+    ("sql.instances.list", "GET", "https://sqladmin.googleapis.com/v1/projects/{project}/instances"),
+)
+
 
 @dataclass(frozen=True)
 class CsafError:
@@ -124,6 +151,7 @@ def from_exception(exc: BaseException, *, resource: str = "", cloud: str | None 
     name = type(exc).__name__
     message = str(exc)
     target = resource or getattr(exc, "filename", None) or name
+    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
 
     if isinstance(exc, ModuleNotFoundError | ImportError):
         missing = getattr(exc, "name", "") or ""
@@ -185,10 +213,14 @@ def from_exception(exc: BaseException, *, resource: str = "", cloud: str | None 
     response = getattr(exc, "response", None)
     if isinstance(response, dict):
         aws_code = response.get("Error", {}).get("Code", "")
-    if aws_code in {"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"} or "AccessDenied" in message:
+    denied = (
+        aws_code in {"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"} or "AccessDenied" in message
+    )
+    http_denied = status in (401, 403) or " 401" in message or " 403" in message
+    if denied or http_denied:
         return CsafError(
             ERROR_CODES["permission"],
-            f"Read API denied ({aws_code or name}): {message}",
+            f"Read API denied ({aws_code or status or name}): {message}",
             str(target),
             "Attach the AWS managed policy arn:aws:iam::aws:policy/SecurityAudit to this principal "
             "(or Azure Reader + Security Reader / GCP roles/viewer / Kubernetes view). "
@@ -196,11 +228,13 @@ def from_exception(exc: BaseException, *, resource: str = "", cloud: str | None 
             "         Then: csaf-assess --preflight --live",
         )
 
+    cloud_key = cloud if cloud in _CREDENTIAL_FIX else "aws"
     return CsafError(
         ERROR_CODES["unknown"],
         f"{name}: {message}",
         str(target) or "runner",
-        "csaf-assess --log-level DEBUG --self-check --output-dir out",
+        f"csaf-assess --guide --cloud {cloud_key}\n"
+        "         Then: csaf-assess --log-level DEBUG --self-check --output-dir out",
     )
 
 
@@ -289,6 +323,23 @@ def _probe_aws(profile: str | None) -> list[CsafError]:
     return errors
 
 
+def _http_status_error(status: int, resource: str, url: str, cloud: str) -> CsafError:
+    if status in (401, 403):
+        return CsafError(
+            ERROR_CODES["permission"],
+            f"{resource} returned HTTP {status}.",
+            url,
+            _CREDENTIAL_FIX[cloud],
+        )
+    return CsafError(
+        ERROR_CODES["api"],
+        f"{resource} returned HTTP {status}.",
+        url,
+        _CREDENTIAL_FIX[cloud],
+        blocking=status != 404,
+    )
+
+
 def _probe_azure(subscription: str | None) -> list[CsafError]:
     try:
         import requests
@@ -297,11 +348,11 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
         return [from_exception(exc, resource="azure.identity", cloud="azure")]
     try:
         token = DefaultAzureCredential().get_token("https://management.azure.com/.default")
-    except Exception as exc:
+    except Exception as extra_exc:
         return [
             CsafError(
                 ERROR_CODES["credentials"],
-                f"Azure DefaultAzureCredential failed: {exc}",
+                f"Azure DefaultAzureCredential failed: {extra_exc}",
                 "https://management.azure.com/.default",
                 "az login\n         Then: az account show\n         Playbook: csaf-assess --guide --cloud azure",
             )
@@ -349,25 +400,49 @@ def _probe_azure(subscription: str | None) -> list[CsafError]:
             blocking=False,
         )
     ]
-    if subscription or (len(subs) == 1 and subs[0]):
-        sub_id = subscription or subs[0]
-        sec_url = (
-            f"https://management.azure.com/subscriptions/{sub_id}"
-            "/providers/Microsoft.Security/pricings?api-version=2022-03-01"
+    sub_id = subscription or (subs[0] if len(subs) == 1 else None)
+    if not sub_id:
+        return errors
+    sec_url = (
+        f"https://management.azure.com/subscriptions/{sub_id}"
+        "/providers/Microsoft.Security/pricings?api-version=2022-03-01"
+    )
+    sec = requests.get(sec_url, headers=headers, timeout=30)
+    if sec.status_code in (401, 403):
+        errors.append(
+            CsafError(
+                ERROR_CODES["permission"],
+                f"ARM GET Defender pricing returned HTTP {sec.status_code}.",
+                sec_url,
+                "Grant Security Reader on the subscription in addition to Reader.\n"
+                "         Playbook: csaf-assess --guide --cloud azure",
+            )
         )
-        sec = requests.get(sec_url, headers=headers, timeout=30)
-        if sec.status_code in (401, 403):
+    else:
+        errors.append(CsafError(ERROR_CODES["ok"], "Defender-for-Cloud read ok.", sec_url, "", blocking=False))
+    for provider, api, label in _AZURE_ARM_PROBES:
+        probe_url = f"https://management.azure.com/subscriptions/{sub_id}/providers/{provider}?api-version={api}"
+        probe = requests.get(probe_url, headers=headers, timeout=30)
+        resource = f"ARM GET {provider}"
+        if probe.status_code in (401, 403):
             errors.append(
                 CsafError(
                     ERROR_CODES["permission"],
-                    f"ARM GET Defender pricing returned HTTP {sec.status_code}.",
-                    sec_url,
-                    "Grant Security Reader on the subscription in addition to Reader.\n"
+                    f"ARM GET {provider} returned HTTP {probe.status_code}.",
+                    probe_url,
+                    "Grant Reader + Security Reader on the subscription.\n"
+                    f"         Then: az rest --method get --url {probe_url}\n"
                     "         Playbook: csaf-assess --guide --cloud azure",
                 )
             )
+        elif probe.status_code == 404:
+            errors.append(
+                CsafError(ERROR_CODES["ok"], f"{label} not present (HTTP 404).", resource, "", blocking=False)
+            )
+        elif probe.status_code >= 400:
+            errors.append(_http_status_error(probe.status_code, resource, probe_url, "azure"))
         else:
-            errors.append(CsafError(ERROR_CODES["ok"], "Defender-for-Cloud read ok.", sec_url, "", blocking=False))
+            errors.append(CsafError(ERROR_CODES["ok"], f"{label} read ok.", resource, "", blocking=False))
     return errors
 
 
@@ -379,11 +454,11 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
         return [from_exception(exc, resource="google.auth", cloud="gcp")]
     try:
         credentials, default_project = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
-    except Exception as exc:
+    except Exception as extra_exc:
         return [
             CsafError(
                 ERROR_CODES["credentials"],
-                f"GCP Application Default Credentials failed: {exc}",
+                f"GCP Application Default Credentials failed: {extra_exc}",
                 "ADC",
                 "gcloud auth application-default login\n"
                 "         gcloud config set project PROJECT_ID\n"
@@ -423,7 +498,7 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
                 f"gcloud projects describe {project_id}",
             )
         ]
-    return [
+    errors = [
         CsafError(
             ERROR_CODES["ok"],
             f"GCP identity ok for project {project_id}.",
@@ -432,24 +507,55 @@ def _probe_gcp(project: str | None) -> list[CsafError]:
             blocking=False,
         )
     ]
+    for name, method, template in _GCP_API_PROBES:
+        probe_url = template.format(project=project_id)
+        resource = f"{name} ({project_id})"
+        try:
+            if method == "POST":
+                probe = http.post(probe_url, json={"options": {"requestedPolicyVersion": 3}}, timeout=30)
+            else:
+                probe = http.get(probe_url, timeout=30)
+        except Exception as extra_exc:
+            errors.append(from_exception(extra_exc, resource=resource, cloud="gcp"))
+            continue
+        if probe.status_code in (401, 403):
+            errors.append(
+                CsafError(
+                    ERROR_CODES["permission"],
+                    f"{method} {name} returned HTTP {probe.status_code}.",
+                    resource,
+                    f"gcloud projects describe {project_id}\n"
+                    "         Grant roles/viewer on the project.\n"
+                    "         Playbook: csaf-assess --guide --cloud gcp",
+                )
+            )
+        elif probe.status_code == 404:
+            errors.append(
+                CsafError(ERROR_CODES["ok"], f"{name} not present (HTTP 404).", resource, "", blocking=False)
+            )
+        elif probe.status_code >= 400:
+            errors.append(_http_status_error(probe.status_code, resource, probe_url, "gcp"))
+        else:
+            errors.append(CsafError(ERROR_CODES["ok"], f"{name} ok.", resource, "", blocking=False))
+    return errors
 
 
 def _probe_k8s(kubeconfig: str | None, context: str | None) -> list[CsafError]:
     try:
         from kubernetes import client, config
-    except ImportError as exc:
-        return [from_exception(exc, resource="kubernetes", cloud="k8s")]
+    except ImportError as extra_exc:
+        return [from_exception(extra_exc, resource="kubernetes", cloud="k8s")]
     try:
         if kubeconfig:
             config.load_kube_config(config_file=kubeconfig, context=context)
         else:
             config.load_kube_config(context=context)
         version = client.VersionApi().get_code()
-    except Exception as exc:
+    except Exception as extra_exc:
         return [
             CsafError(
                 ERROR_CODES["credentials"],
-                f"Kubernetes API access failed: {exc}",
+                f"Kubernetes API access failed: {extra_exc}",
                 context or kubeconfig or "current-context",
                 "kubectl config current-context\n         kubectl get ns\n         Playbook: csaf-assess --guide --cloud k8s",
             )
@@ -464,17 +570,28 @@ def _probe_k8s(kubeconfig: str | None, context: str | None) -> list[CsafError]:
             blocking=False,
         )
     ]
-    try:
-        client.CoreV1Api().list_namespace(limit=1)
-        errors.append(CsafError(ERROR_CODES["ok"], "list namespaces ok.", "namespaces", "", blocking=False))
-    except Exception as exc:
-        errors.append(
-            CsafError(
-                ERROR_CODES["permission"],
-                f"Kubernetes list namespaces failed: {exc}",
-                context or "current-context",
-                "Bind the built-in ClusterRole view (not cluster-admin).\n"
-                "         Playbook: csaf-assess --guide --cloud k8s",
+    core = client.CoreV1Api()
+    rbac = client.RbacAuthorizationV1Api()
+    net = client.NetworkingV1Api()
+    k8s_probes = (
+        ("namespaces", lambda: core.list_namespace(limit=1)),
+        ("pods", lambda: core.list_pod_for_all_namespaces(limit=1)),
+        ("clusterroles", lambda: rbac.list_cluster_role()),
+        ("networkpolicies", lambda: net.list_network_policy_for_all_namespaces(limit=1)),
+    )
+    for name, call in k8s_probes:
+        try:
+            call()
+            errors.append(CsafError(ERROR_CODES["ok"], f"list {name} ok.", name, "", blocking=False))
+        except Exception as extra_exc:
+            errors.append(
+                CsafError(
+                    ERROR_CODES["permission"],
+                    f"Kubernetes list {name} failed: {extra_exc}",
+                    context or "current-context",
+                    "Bind the built-in ClusterRole view (not cluster-admin).\n"
+                    f"         Then: kubectl get {name}\n"
+                    "         Playbook: csaf-assess --guide --cloud k8s",
+                )
             )
-        )
     return errors

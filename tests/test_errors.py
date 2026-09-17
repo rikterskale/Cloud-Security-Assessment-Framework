@@ -1,6 +1,7 @@
 """Structured error mapping and live-preflight blocking behaviour."""
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from csaf.errors import CsafError, from_exception, probe_cloud_access
@@ -48,6 +49,9 @@ class TestMultiScopeAndAccounts(unittest.TestCase):
         result = run_assessment(RunConfig(self_check=True, accounts=["111", "222"], log_level="ERROR"))
         self.assertEqual(result.exit_code, 1)
         self.assertIn("multiple AWS accounts", result.message)
+        self.assertIn("CSAF-E005", result.message)
+        self.assertIn("Resource: --accounts", result.message)
+        self.assertIn("csaf-campaign create", result.message)
 
     def test_azure_subscriptions_aggregate(self):
         import tempfile
@@ -213,6 +217,107 @@ class TestErrorHelpers(unittest.TestCase):
         text = format_error(CsafError("CSAF-E001", "missing", "boto3", "pip install"))
         self.assertIn("Resource: boto3", text)
         self.assertIn("Fix: pip install", text)
+
+    def test_unknown_error_points_at_guide(self):
+        err = from_exception(RuntimeError("odd"))
+        self.assertEqual(err.code, "CSAF-E999")
+        self.assertIn("--guide", err.fix)
+
+
+class TestExtraCloudProbes(unittest.TestCase):
+    def test_probe_azure_storage_denied_is_blocking(self):
+        class Cred:
+            def get_token(self, scope):
+                return type("Tok", (), {"token": "t"})()
+
+        class Resp:
+            def __init__(self, code, payload=None):
+                self.status_code = code
+                self._payload = payload or {}
+
+            def json(self):
+                return self._payload
+
+        def get(url, headers=None, timeout=None):
+            if "subscriptions?api-version=2020-01-01" in url:
+                return Resp(200, {"value": [{"subscriptionId": "sub-1"}]})
+            if "Microsoft.Storage/storageAccounts" in url:
+                return Resp(403)
+            return Resp(200, {"value": []})
+
+        azure_identity = unittest.mock.MagicMock()
+        azure_identity.DefaultAzureCredential.return_value = Cred()
+        requests = unittest.mock.MagicMock()
+        requests.get.side_effect = get
+        with patch.dict(
+            "sys.modules",
+            {
+                "azure": unittest.mock.MagicMock(),
+                "azure.identity": azure_identity,
+                "requests": requests,
+            },
+        ):
+            from csaf.errors import _probe_azure
+
+            errors = _probe_azure("sub-1")
+        denied = [err for err in errors if err.blocking and "Microsoft.Storage" in err.resource]
+        self.assertTrue(denied)
+        self.assertIn("--guide", denied[0].fix)
+
+    def test_probe_gcp_storage_denied_is_blocking(self):
+        import types
+
+        class AuthorizedSession:
+            def __init__(self, creds):
+                pass
+
+            def get(self, url, timeout=None):
+                if "storage.googleapis.com" in url:
+                    return SimpleNamespace(status_code=403, text="denied")
+                return SimpleNamespace(status_code=200, text="{}")
+
+            def post(self, url, json=None, timeout=None):
+                return SimpleNamespace(status_code=200, text="{}")
+
+        google = types.ModuleType("google")
+        google_auth = types.ModuleType("google.auth")
+        google_auth.default = lambda scopes=None: (object(), "proj-1")
+        transport = types.ModuleType("google.auth.transport")
+        requests_mod = types.ModuleType("google.auth.transport.requests")
+        requests_mod.AuthorizedSession = AuthorizedSession
+        google.auth = google_auth
+        google_auth.transport = transport
+        transport.requests = requests_mod
+        with patch.dict(
+            "sys.modules",
+            {
+                "google": google,
+                "google.auth": google_auth,
+                "google.auth.transport": transport,
+                "google.auth.transport.requests": requests_mod,
+            },
+        ):
+            from csaf.errors import _probe_gcp
+
+            errors = _probe_gcp("proj-1")
+        denied = [err for err in errors if err.blocking and "storage.buckets.list" in err.resource]
+        self.assertTrue(denied)
+        self.assertIn("roles/viewer", denied[0].fix)
+
+    def test_probe_k8s_pods_denied_is_blocking(self):
+        k8s = unittest.mock.MagicMock()
+        k8s.client.VersionApi.return_value.get_code.return_value = type("V", (), {"git_version": "v1.31.0"})()
+        k8s.client.CoreV1Api.return_value.list_namespace.return_value = {}
+        k8s.client.CoreV1Api.return_value.list_pod_for_all_namespaces.side_effect = RuntimeError("pods forbidden")
+        with patch.dict(
+            "sys.modules", {"kubernetes": k8s, "kubernetes.client": k8s.client, "kubernetes.config": k8s.config}
+        ):
+            from csaf.errors import _probe_k8s
+
+            errors = _probe_k8s(None, "ctx")
+        denied = [err for err in errors if err.blocking and "pods" in err.cause]
+        self.assertTrue(denied)
+        self.assertIn("kubectl get pods", denied[0].fix)
 
 
 if __name__ == "__main__":
