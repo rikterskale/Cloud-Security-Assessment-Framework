@@ -469,7 +469,9 @@ def run_assessment(config: RunConfig) -> RunResult:
             findings = []
         else:
             findings = [finding_from_result(r, remediation_for(r.control_id)) for r in results if r.is_finding]
-        delta = compute_delta(findings, config.previous_findings_path)
+        delta = compute_delta(
+            findings, config.previous_findings_path, results=results if config.profile != "Inventory" else []
+        )
 
         coverage = compute_coverage(selected_ids, results)
         evaluated_by_control = {r.control_id for r in results if r.is_executed or r.status == "Error"}
@@ -504,7 +506,15 @@ def run_assessment(config: RunConfig) -> RunResult:
             results, findings, coverage, risk, compliance, context, out_dir, detection_coverage=detection_coverage
         )
         write_executive_html(
-            findings, coverage, risk, compliance, context, out_dir, delta=delta, detection_coverage=detection_coverage
+            findings,
+            coverage,
+            risk,
+            compliance,
+            context,
+            out_dir,
+            delta=delta,
+            detection_coverage=detection_coverage,
+            results=results,
         )
 
         # Optional interoperability exports (additive; never replace findings.json).

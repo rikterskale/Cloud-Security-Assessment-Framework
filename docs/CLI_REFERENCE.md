@@ -12,7 +12,7 @@
 | `--engagement` | `none` | Path to the signed engagement authorization file (required for active profiles). |
 | `--engagement-key-file` | `none` | Path to the shared-secret key used to verify the signed engagement; required for Validation/AdversarySimulation (see sign_engagement.py). |
 | `--allow-secret-discovery` | `False` | Azure Validation only: inventory potential secret-bearing resource locations. Requires a signed engagement with secretDiscoveryApproved=true; never retrieves or stores secret values. |
-| `--previous-findings` | `none` | Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json). |
+| `--previous-findings` | `none` | Path to a prior run's findings.json to diff against (adds DeltaStatus, findings-resolved.json, and findings-unverified.json; resolution requires completed evaluation in the same scope). |
 | `--aws-profile` | `none` | Named AWS credentials profile to use (read-only). |
 | `--subscription` | `none` | Azure subscription ID to assess (default: discovered if unambiguous). |
 | `--subscriptions` | `[]` | Azure: assess these subscription IDs sequentially and write an aggregate report. |
@@ -33,13 +33,15 @@
 | `--skip-live-preflight` | `False` | Skip the automatic read-only credential/API probe on live assessments. |
 | `--plan` | `False` | Print a deterministic no-network control and scope preview, then exit. |
 | `--tutorial` | `False` | Run the safe offline fixture tutorial and verify its manifest. |
-| `--cleanup-tutorial` | `False` | Remove only the tutorial output directory named by --output-dir after a tutorial run. |
+| `--cleanup-tutorial` | `False` | Remove only marked tutorial runs under --output-dir; preserve other reports and the parent directory. |
 | `--no-color` | `False` | Use plain terminal output without color or decorative styling. |
 | `--color` | `False` | Force ANSI color when stdout is not a terminal. |
 | `--completion` | `none` | Print shell completion generated from this command's argparse options, then exit. |
 | `--output-format` | `text` | Format --preflight or --plan output (default: text). |
 | `--guide` | `False` | Print a step-by-step live-assessment playbook for --cloud (credentials, roles, commands). No cloud calls. |
 | `--self-check` | `False` | Run offline with synthetic data (no cloud calls). |
+| `--start` | `False` | Guided first run: choose an offline demo or a read-only live assessment. |
+| `--open-report` | `False` | Open the completed HTML report in your default browser. |
 | `--version` | `==SUPPRESS==` | show program's version number and exit |
 
 ## Safe first steps

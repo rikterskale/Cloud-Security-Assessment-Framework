@@ -41,7 +41,7 @@ class TestComputeDelta(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             prev_path = Path(tmp) / "findings.json"
             prev_path.write_text(json.dumps([old.to_dict()]), encoding="utf-8")
-            delta = compute_delta([current], prev_path)
+            delta = compute_delta([current], prev_path, results=[make_result(old.control_id, "Pass")])
         self.assertEqual(delta.status_for(current.finding_id), NEW)
         self.assertEqual([r["FindingId"] for r in delta.resolved], [old.finding_id])
 
@@ -52,8 +52,37 @@ class TestComputeDelta(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             prev_path = Path(tmp) / "findings.json"
             prev_path.write_text(json.dumps([old.to_dict(), persisted.to_dict()]), encoding="utf-8")
-            delta = compute_delta([persisted, new], prev_path)
-        self.assertEqual(delta.to_summary(), {"new": 1, "persisted": 1, "resolved": 1})
+            delta = compute_delta([persisted, new], prev_path, results=[make_result(old.control_id, "Pass")])
+        self.assertEqual(delta.to_summary(), {"new": 1, "persisted": 1, "resolved": 1, "unverified": 0})
+
+    def test_absent_findings_are_unverified_without_completed_same_scope_results(self):
+        old = finding("CSAF-AWS-TST-002")
+        for status, account, region in (
+            ("Error", "1", "global"),
+            ("NotTested", "1", "global"),
+            ("Pass", "other", "global"),
+            ("Pass", "1", "other"),
+        ):
+            with self.subTest(status=status, account=account, region=region), tempfile.TemporaryDirectory() as tmp:
+                previous = Path(tmp) / "findings.json"
+                previous.write_text(json.dumps([old.to_dict()]), encoding="utf-8")
+                result = make_result(old.control_id, status)
+                result.account_id, result.region = account, region
+                delta = compute_delta([], previous, results=[result])
+                self.assertEqual(delta.resolved, [])
+                self.assertEqual(delta.unverified[0]["FindingId"], old.finding_id)
+                self.assertEqual(compute_delta([], previous).resolved, [])
+
+    def test_partial_execution_failure_blocks_resolution(self):
+        old = finding("CSAF-AWS-TST-002")
+        with tempfile.TemporaryDirectory() as tmp:
+            previous = Path(tmp) / "findings.json"
+            previous.write_text(json.dumps([old.to_dict()]), encoding="utf-8")
+            delta = compute_delta(
+                [], previous, results=[make_result(old.control_id, "Pass"), make_result(old.control_id, "Error")]
+            )
+        self.assertEqual(delta.resolved, [])
+        self.assertEqual(len(delta.unverified), 1)
 
 
 class TestDeltaEndToEnd(unittest.TestCase):

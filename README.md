@@ -94,6 +94,32 @@ Homebrew (`Formula/cloud-saf.rb`) can install from the tagged tarball once the G
 
 ## Guided live assessment
 
+After installation, activate `.venv` (`& .\.venv\Scripts\Activate.ps1` on
+Windows, `source .venv/bin/activate` on Linux/macOS), then run:
+
+```bash
+csaf-assess --start
+```
+
+The guided flow defaults to an offline demo, lets you choose a cloud, previews
+the target and scope before starting, and offers to open the completed report.
+For a live assessment, it uses your existing read-only credentials and the
+runner's automatic access checks. It does not collect or save credentials.
+Press Ctrl+C to cancel setup. Running `csaf-assess` with no arguments shows a
+short getting-started menu and makes no cloud calls.
+
+For a direct demo with no prompts:
+
+```bash
+csaf-assess --self-check --open-report
+```
+
+`--open-report` opens a completed HTML report in your default browser; if no
+browser is available it prints the file path. It preserves assessment exit
+codes, including the demo's expected exit `2`. Use explicit flags in automation;
+`--start` requires an interactive terminal. Existing scripted scans should
+specify their cloud and scope explicitly instead of invoking an empty command.
+
 Print a complete, copy-paste playbook for the cloud you will assess. It covers
 the CLI to install, the read-only identity to create, how to prove login works,
 the CSAF commands, and how to read the reports. **No cloud calls.**
@@ -147,6 +173,34 @@ csaf-assess --cloud k8s --kube-context CONTEXT_NAME --output-dir out
 
 Then open `out/*/executive-summary.html` and `out/*/findings.csv` (CRITICAL first).
 Confirm coverage in `out/*/coverage-report.csv` — empty findings do not mean a complete assessment.
+
+The HTML report works offline and searches every finding. Expand a finding
+title for observed and expected states, scope, confidence, and evidence
+references. Remediation instructions and resource identifiers are shown in
+full. Assessment gaps include recorded reasons for `NotTested` and `Error`
+results. Download links point to the CSV, JSON, and manifest files beside the
+report; share the complete run directory so those links remain usable.
+
+CSV exports prefix potential spreadsheet formulas with an apostrophe to keep
+cloud-controlled text inert. JSON and JSONL preserve the original values and
+are the preferred inputs for machine processing. Demo reports label synthetic
+data, inventory reports explain that findings are suppressed, and compliance
+percentages describe evaluated mapped controls rather than certification.
+
+Finding comparisons call a missing finding **resolved** only when the current
+run completed that control in the same cloud, account, and region. Missing or
+incomplete scope remains **unverified** in `findings-unverified.json`.
+`csaf-drift` uses the current run's matching `technical-report.json` for this
+check; loose findings files alone cannot prove resolution. `--alert-on any`
+includes unverified disappearances; `--alert-on resolved` requires evidence.
+
+`--cleanup-tutorial` removes marked tutorial runs under `csaf-output` or
+`tutorial-output` and preserves neighboring reports and the parent directory.
+Older tutorials without a marker are retained. A marker records local tutorial
+ownership; it does not authenticate evidence.
+
+See [product readiness review](docs/PRODUCT_READINESS.md) for the remaining
+release evidence and acceptance criteria.
 
 ## Architecture
 
@@ -297,7 +351,9 @@ option surface. Summary:
 | `--skip-live-preflight` | off | Skip automatic live probe on real assessments |
 | `--plan` | off | No-network control preview |
 | `--tutorial` | off | Offline fixture tutorial |
-| `--cleanup-tutorial` | off | Remove tutorial output |
+| `--cleanup-tutorial` | off | Remove marked tutorial runs; preserve other reports |
+| `--start` | off | Guided demo or live Assessment |
+| `--open-report` | off | Open completed HTML report in a browser |
 | `--no-color` | off | Plain terminal output |
 | `--color` | off | Force ANSI color |
 | `--completion` | none | Print bash/zsh/powershell completion |

@@ -162,17 +162,66 @@ class TestExecutiveHtml(ReportingTestCase):
         self.assertNotIn("Show all", html_doc)
         self.assertIn("<h2>Findings</h2>", html_doc)
 
-    def test_over_50_findings_adds_collapsible_full_list(self):
+    def test_over_50_findings_are_all_in_the_searchable_table_once(self):
         findings = [make_finding(f"CSAF-AWS-X-{i:03d}", severity="CRITICAL", resource_id=f"r{i}") for i in range(75)]
         html_doc = self.render(findings)
-        self.assertIn("<h2>Top Findings</h2>", html_doc)
-        self.assertIn("Show all 75 findings", html_doc)
+        self.assertIn("<h2>Findings</h2>", html_doc)
+        self.assertNotIn("Show all", html_doc)
         self.assertIn("<details", html_doc)
         # Every finding's resource ID must appear somewhere (nothing silently dropped).
         for i in range(75):
             self.assertIn(f"r{i}", html_doc)
-        # Preview table (50 rows) + full table inside <details> (75 rows) = 125 severity rows total.
-        self.assertEqual(html_doc.count('<tr class="critical">'), 50 + 75)
+        self.assertEqual(html_doc.count('<tr class="critical">'), 75)
+
+    def test_full_resource_and_remediation_are_not_truncated(self):
+        resource = "resource-" + "x" * 100
+        remediation = "Step one. " * 30 + "Final verification step."
+        html_doc = self.render([make_finding("X", resource_id=resource, remediation=remediation)])
+        self.assertIn(resource, html_doc)
+        self.assertIn(remediation, html_doc)
+
+    def test_no_evaluated_controls_do_not_claim_zero_percent_compliance(self):
+        html_doc = self.render([], compliance={"CIS": {"name": "CIS", "evaluated": 0, "passed": 0}})
+        self.assertIn("Not evaluated", html_doc)
+        self.assertNotIn("<td>0%</td>", html_doc)
+
+    def test_demo_and_inventory_are_clearly_labeled(self):
+        for context, message in (
+            ({**CONTEXT, "selfCheck": True}, "Demo report — synthetic data"),
+            ({**CONTEXT, "profile": "Inventory"}, "Security findings are not issued"),
+        ):
+            write_executive_html([], full_coverage(), RISK, {}, context, self.out)
+            self.assertIn(message, (self.out / "executive-summary.html").read_text(encoding="utf-8"))
+
+    def test_gap_reasons_are_visible_and_escaped(self):
+        result = make_result("GAP", "Error", title="Missing permission")
+        result.error_reason = '<script>alert("denied")</script>'
+        write_executive_html([], full_coverage(error=1), RISK, {}, CONTEXT, self.out, results=[result])
+        html_doc = (self.out / "executive-summary.html").read_text(encoding="utf-8")
+        self.assertIn("Assessment gaps", html_doc)
+        self.assertIn("Missing permission", html_doc)
+        self.assertIn("&lt;script&gt;", html_doc)
+        self.assertNotIn('<script>alert("denied")', html_doc)
+
+
+class TestSpreadsheetSafety(ReportingTestCase):
+    def test_formula_text_is_inert_in_csv_and_original_in_json(self):
+        for payload in ('=HYPERLINK("evil")', "+SUM(1,2)", "-1+2", "@SUM(1)", "  =1+2", "\t=1+2", "\r=1+2", "\n=1+2"):
+            with self.subTest(payload=payload):
+                finding = make_finding("X", title=payload, resource_id=payload, remediation=payload)
+                write_findings([finding], self.out)
+                write_control_results([make_result("X", title=payload)], self.out)
+                write_remediation_roadmap([finding], self.out)
+                for filename, field in (
+                    ("findings.csv", "ResourceId"),
+                    ("control-results.csv", "Title"),
+                    ("remediation-roadmap.csv", "Remediation"),
+                ):
+                    with (self.out / filename).open(encoding="utf-8", newline="") as handle:
+                        row = next(csv.DictReader(handle))
+                    self.assertEqual(row[field], "'" + payload)
+                original = json.loads((self.out / "findings.json").read_text(encoding="utf-8"))
+                self.assertEqual(original[0]["ResourceId"], payload)
 
 
 if __name__ == "__main__":

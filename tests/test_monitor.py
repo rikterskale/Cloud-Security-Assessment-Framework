@@ -19,24 +19,36 @@ class TestDrift(unittest.TestCase):
         prev = [rec("F-1"), rec("F-2", "LOW")]
         curr = [rec("F-2", "LOW"), rec("F-3", "CRITICAL")]
         drift = compute_drift(prev, curr)
-        self.assertEqual(drift["counts"], {"new": 1, "resolved": 1, "persisted": 1})
+        self.assertEqual(drift["counts"], {"new": 1, "resolved": 0, "persisted": 1, "unverified": 1})
         self.assertEqual(drift["new"][0]["FindingId"], "F-3")
-        self.assertEqual(drift["resolved"][0]["FindingId"], "F-1")
+        self.assertEqual(drift["unverified"][0]["FindingId"], "F-1")
         self.assertEqual(drift["highestNewSeverity"], "CRITICAL")
 
     def test_no_change(self):
         same = [rec("F-1"), rec("F-2")]
         drift = compute_drift(same, same)
-        self.assertEqual(drift["counts"], {"new": 0, "resolved": 0, "persisted": 2})
+        self.assertEqual(drift["counts"], {"new": 0, "resolved": 0, "persisted": 2, "unverified": 0})
 
     def test_should_alert_modes(self):
         drift = compute_drift([rec("F-1")], [rec("F-2")])  # 1 new, 1 resolved
         self.assertTrue(should_alert(drift, "new"))
-        self.assertTrue(should_alert(drift, "resolved"))
+        self.assertFalse(should_alert(drift, "resolved"))
         self.assertTrue(should_alert(drift, "any"))
         self.assertFalse(should_alert(drift, "none"))
         clean = compute_drift([rec("F-1")], [rec("F-1")])
         self.assertFalse(should_alert(clean, "new"))
+
+    def test_completed_scope_proves_resolution_and_enables_alert(self):
+        previous = {**rec("F-1"), "Cloud": "AWS", "AccountId": "1", "Region": "global"}
+        result = {"Cloud": "AWS", "AccountId": "1", "Region": "global", "ControlId": "CIS-1.1", "Status": "Pass"}
+        drift = compute_drift([previous], [], control_results=[result])
+        self.assertEqual(drift["counts"]["resolved"], 1)
+        self.assertTrue(should_alert(drift, "resolved"))
+
+    def test_unverified_removal_triggers_any_alert(self):
+        drift = compute_drift([rec("F-1")], [])
+        self.assertTrue(should_alert(drift, "any"))
+        self.assertFalse(should_alert(drift, "resolved"))
 
     def test_should_alert_rejects_bad_mode(self):
         with self.assertRaises(ValueError):
@@ -78,6 +90,22 @@ class TestDriftCli(unittest.TestCase):
                 rc = main(["--previous", prev, "--current", curr, "--alert-on", "new"])
             self.assertEqual(rc, 0)
             self.assertIn("[OK]", buf.getvalue())
+
+    def test_cli_uses_matching_technical_evidence_and_rejects_stale_evidence(self):
+        previous = {**rec("F-1"), "Cloud": "AWS", "AccountId": "1", "Region": "global"}
+        result = {"Cloud": "AWS", "AccountId": "1", "Region": "global", "ControlId": "CIS-1.1", "Status": "Pass"}
+        for technical_findings, expected in (([], 1), ([rec("stale")], 0)):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as tmp:
+                prev = self._write(tmp, "prev.json", [previous])
+                curr = self._write(tmp, "current.json", [])
+                self._write(
+                    tmp,
+                    "technical-report.json",
+                    {"Context": {"profile": "Assessment"}, "Findings": technical_findings, "ControlResults": [result]},
+                )
+                with redirect_stdout(io.StringIO()):
+                    code = main(["--previous", prev, "--current", curr, "--alert-on", "resolved"])
+                self.assertEqual(code, expected)
 
 
 if __name__ == "__main__":

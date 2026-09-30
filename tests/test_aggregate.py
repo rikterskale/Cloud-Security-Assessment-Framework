@@ -8,7 +8,7 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from csaf.aggregate import aggregate_runs, main
+from csaf.aggregate import aggregate_runs, main, write_aggregate
 
 
 def make_run(root: Path, name, cloud, account, findings):
@@ -27,6 +27,18 @@ def finding(fid, control, sev="HIGH", title="t", resource="r"):
 
 
 class TestAggregate(unittest.TestCase):
+    def test_csv_scope_text_cannot_execute_a_spreadsheet_formula(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run = make_run(root, "a", "AWS", "=1+2", [])
+            out = root / "aggregate"
+            write_aggregate(aggregate_runs([run]), out)
+            with (out / "aggregate.csv").open(encoding="utf-8", newline="") as handle:
+                row = next(csv.DictReader(handle))
+            self.assertEqual(row["Account"], "'=1+2")
+            data = json.loads((out / "aggregate.json").read_text(encoding="utf-8"))
+            self.assertEqual(data["scopes"][0]["account"], "=1+2")
+
     def test_aggregate_and_cross_scope(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -23,6 +23,7 @@ from pathlib import Path
 
 from .console import next_steps
 from .model import FINDING_SEVERITIES
+from .reporting import spreadsheet_cell
 
 
 def _read_json(path: Path):
@@ -110,7 +111,7 @@ def write_aggregate(aggregate: dict, out_dir: str | Path) -> dict:
         writer.writerow(["Scope", "Cloud", "Account", "Profile", "Findings", *FINDING_SEVERITIES])
         for scope in aggregate["scopes"]:
             writer.writerow(
-                [scope["scope"], scope["cloud"], scope["account"], scope["profile"], scope["findingCount"]]
+                [spreadsheet_cell(scope[key]) for key in ("scope", "cloud", "account", "profile", "findingCount")]
                 + [scope["severityCounts"][sev] for sev in FINDING_SEVERITIES]
             )
     return {"json": str(json_path), "csv": str(csv_path)}

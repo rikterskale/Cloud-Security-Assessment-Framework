@@ -5,6 +5,24 @@ All notable changes to CSAF are documented here.
 The Python distribution name is **cloud-saf**. The import package remains `csaf`.
 Do not `pip install csaf` — that is the OASIS Common Security Advisory Framework.
 
+## Unreleased
+
+### Added
+
+- `--start` guides operators through a synthetic demo or a single-target live Assessment with a scope preview.
+- `--open-report` opens a completed local HTML report and falls back to a file path when a browser is unavailable.
+- Reports show complete resource identifiers, remediation, expandable evidence details, assessment-gap reasons, and adjacent artifact downloads.
+- Product readiness review with release acceptance criteria in `docs/PRODUCT_READINESS.md`.
+
+### Fixed
+
+- Empty CLI invocation now shows a network-free welcome instead of attempting an implicit AWS scan. Automation must provide explicit scan options.
+- Report search covers every finding once, including findings beyond the former 50-row preview. Filters expose pressed state, live counts, and a no-match recovery message.
+- Reports label synthetic data and inventory mode, explain risk direction, and distinguish unevaluated compliance from a zero pass rate.
+- CSV exports neutralize potential spreadsheet formulas without changing JSON or JSONL values.
+- Missing findings require completed evaluation in the same scope to be labeled resolved. Other disappearances are exported as unverified; drift `any` alerts include them.
+- Tutorial cleanup removes only marked, verified synthetic runs and preserves other reports. Older unmarked tutorials are retained.
+
 ## 1.1.0 — 2026-09-17
 
 First tagged GitHub Release, PyPI publish (`cloud-saf`), and GHCR image

@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .console import next_steps
+from .delta import partition_absent
 from .model import FINDING_SEVERITIES
 
 _SEVERITY_RANK = {sev: rank for rank, sev in enumerate(FINDING_SEVERITIES)}  # LOW=0 .. CRITICAL=3
@@ -36,7 +37,7 @@ def _index(records: list[dict]) -> dict[str, dict]:
     return {record["FindingId"]: record for record in records if "FindingId" in record}
 
 
-def compute_drift(previous: list[dict], current: list[dict]) -> dict:
+def compute_drift(previous: list[dict], current: list[dict], *, control_results: list[dict] | None = None) -> dict:
     """Return a drift report comparing two findings lists by FindingId."""
     prev = _index(previous)
     curr = _index(current)
@@ -53,7 +54,11 @@ def compute_drift(previous: list[dict], current: list[dict]) -> dict:
         }
 
     new = [summarize(curr[i]) for i in sorted(curr_ids - prev_ids)]
-    resolved = [summarize(prev[i]) for i in sorted(prev_ids - curr_ids)]
+    resolved_records, unverified_records = partition_absent(
+        [prev[i] for i in sorted(prev_ids)], curr_ids, control_results or []
+    )
+    resolved = [summarize(record) for record in resolved_records]
+    unverified = [summarize(record) for record in unverified_records]
     persisted = sorted(curr_ids & prev_ids)
 
     def highest(items: list[dict]) -> str:
@@ -62,8 +67,14 @@ def compute_drift(previous: list[dict], current: list[dict]) -> dict:
     return {
         "new": new,
         "resolved": resolved,
+        "unverified": unverified,
         "persistedCount": len(persisted),
-        "counts": {"new": len(new), "resolved": len(resolved), "persisted": len(persisted)},
+        "counts": {
+            "new": len(new),
+            "resolved": len(resolved),
+            "persisted": len(persisted),
+            "unverified": len(unverified),
+        },
         "highestNewSeverity": highest(new),
         "highestResolvedSeverity": highest(resolved),
     }
@@ -79,7 +90,7 @@ def should_alert(drift: dict, alert_on: str) -> bool:
     if alert_on == "resolved":
         return counts["resolved"] > 0
     if alert_on == "any":
-        return counts["new"] > 0 or counts["resolved"] > 0
+        return counts["new"] > 0 or counts["resolved"] > 0 or counts.get("unverified", 0) > 0
     raise ValueError(f"alert_on must be one of new/resolved/any/none, got {alert_on!r}")
 
 
@@ -135,7 +146,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    drift = compute_drift(_load(args.previous), _load(args.current))
+    previous, current = _load(args.previous), _load(args.current)
+    # Trust coverage only when the sibling report describes these same findings.
+    # Loose findings files alone cannot establish that a missing issue was fixed.
+    control_results = []
+    technical_path = Path(args.current).parent / "technical-report.json"
+    if technical_path.is_file():
+        technical = json.loads(technical_path.read_text(encoding="utf-8"))
+
+        def strip_delta(rows):
+            return {
+                row["FindingId"]: {key: value for key, value in row.items() if key != "DeltaStatus"} for row in rows
+            }
+
+        if technical.get("Context", {}).get("profile") != "Inventory" and strip_delta(
+            technical.get("Findings", [])
+        ) == strip_delta(current):
+            control_results = technical.get("ControlResults", [])
+    drift = compute_drift(previous, current, control_results=control_results)
     if args.out:
         Path(args.out).write_text(json.dumps(drift, indent=2) + "\n", encoding="utf-8")
 
@@ -163,11 +191,18 @@ def main(argv: list[str] | None = None) -> int:
             )
     if not args.quiet:
         counts = drift["counts"]
-        print(f"Drift: {counts['new']} new, {counts['resolved']} resolved, {counts['persisted']} persisted.")
+        print(
+            f"Drift: {counts['new']} new, {counts['resolved']} resolved, {counts['persisted']} persisted, "
+            f"{counts['unverified']} unverified."
+        )
         for item in drift["new"]:
             print(f"  + NEW [{item['Severity']}] {item['ControlId']} {item['ResourceId']}")
         for item in drift["resolved"]:
             print(f"  - RESOLVED [{item['Severity']}] {item['ControlId']} {item['ResourceId']}")
+        for item in drift["unverified"]:
+            print(
+                f"  ? UNVERIFIED [{item['Severity']}] {item['ControlId']} {item['ResourceId']} — rerun in the same scope"
+            )
         print(f"[{'ALERT' if alert else 'OK'}] alert-on={args.alert_on}")
         print(
             next_steps(

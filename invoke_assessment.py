@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -140,7 +139,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--previous-findings",
         default=None,
-        help="Path to a prior run's findings.json to diff against (adds DeltaStatus and findings-resolved.json).",
+        help="Path to a prior run's findings.json to diff against (adds DeltaStatus, findings-resolved.json, "
+        "and findings-unverified.json; resolution requires completed evaluation in the same scope).",
     )
     parser.add_argument("--aws-profile", default=None, help="Named AWS credentials profile to use (read-only).")
     parser.add_argument(
@@ -244,7 +244,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cleanup-tutorial",
         action="store_true",
-        help="Remove only the tutorial output directory named by --output-dir after a tutorial run.",
+        help="Remove only marked tutorial runs under --output-dir; preserve other reports and the parent directory.",
     )
     color_group = parser.add_mutually_exclusive_group()
     color_group.add_argument(
@@ -271,12 +271,70 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print a step-by-step live-assessment playbook for --cloud (credentials, roles, commands). No cloud calls.",
     )
     parser.add_argument("--self-check", action="store_true", help="Run offline with synthetic data (no cloud calls).")
+    parser.add_argument(
+        "--start", action="store_true", help="Guided first run: choose an offline demo or a read-only live assessment."
+    )
+    parser.add_argument(
+        "--open-report", action="store_true", help="Open the completed HTML report in your default browser."
+    )
     parser.add_argument("--version", action="version", version=f"CSAF v{FRAMEWORK_VERSION}")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else argv
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if not argv:
+        from csaf.onboarding import WELCOME
+
+        print(WELCOME)
+        return 0
+
+    if args.start:
+        if (
+            any(
+                (
+                    args.completion,
+                    args.guide,
+                    args.preflight,
+                    args.plan,
+                    args.tutorial,
+                    args.cleanup_tutorial,
+                    args.explain,
+                    args.check_only,
+                    args.self_check,
+                    args.live,
+                    args.skip_live_preflight,
+                )
+            )
+            or args.profile != "Assessment"
+            or args.allow_secret_discovery
+            or args.subscriptions
+            or args.projects
+            or args.accounts
+        ):
+            parser.error("--start requires Assessment and a single target; omit other execution modes.")
+        if not sys.stdin.isatty():
+            print(
+                "[CSAF-E003] --start needs an interactive terminal.\n"
+                "    Fix: csaf-assess --self-check --open-report, or use explicit cloud options for automation."
+            )
+            return 1
+        from csaf.onboarding import configure_start
+
+        try:
+            if not configure_start(args):
+                return 0
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled. No assessment was started.")
+            return 0
+        except (OSError, ValueError, KeyError) as exc:
+            print(
+                f"[CSAF-E003] Could not prepare the assessment: {exc}\n"
+                "    Fix: check --catalog and --baseline, or run csaf-assess --plan."
+            )
+            return 1
 
     if args.completion:
         from csaf.completion import render
@@ -291,20 +349,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cleanup_tutorial and not args.tutorial:
-        output_path = Path(args.output_dir).resolve()
-        if output_path.name not in {"csaf-output", "tutorial-output"}:
-            print(
-                "[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.\n"
-                "    Resource: --output-dir\n"
-                "    Fix: csaf-assess --tutorial --cleanup-tutorial --output-dir tutorial-output"
-            )
-            return 1
-        if not output_path.exists():
-            print(f"[TUTORIAL] Nothing to clean: {output_path}")
-            return 0
-        shutil.rmtree(output_path, ignore_errors=False)
-        print(f"[TUTORIAL] Cleaned tutorial output: {output_path}")
-        return 0
+        return _cleanup_tutorial(args.output_dir)
 
     if args.preflight:
         from csaf.preflight import format_preflight, preflight_json, run_preflight
@@ -353,6 +398,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.tutorial:
+        if args.cleanup_tutorial:
+            from csaf.tutorial import tutorial_base
+
+            try:
+                tutorial_base(args.output_dir)
+            except ValueError as exc:
+                print(f"[CSAF-E007] Refusing cleanup: {exc}.")
+                return 1
         args.self_check = True
         args.cloud = "aws"
         args.profile = "Assessment"
@@ -412,7 +465,11 @@ def main(argv: list[str] | None = None) -> int:
     if summary and args.log_level != "ERROR":
         print(summary)
         print(findings_table(result, color=color))
-    print(f"[*] Output written to {result.output_dir}")
+    report = Path(result.output_dir) / "executive-summary.html"
+    if result.coverage:
+        print(f"[*] Output written to {result.output_dir}")
+    elif any(Path(result.output_dir).glob("assessment-*.log")):
+        print(f"[*] Run diagnostics: {result.output_dir}")
     if result.exit_code == 2 and args.self_check:
         print("[INCOMPLETE] is expected for --self-check: its fixture intentionally leaves one control untested.")
     if not args.tutorial:
@@ -426,20 +483,49 @@ def main(argv: list[str] | None = None) -> int:
                 self_check=args.self_check,
             )
         )
+    if args.open_report and result.exit_code in (0, 2) and report.is_file():
+        import webbrowser
+
+        try:
+            opened = webbrowser.open(report.resolve().as_uri())
+        except (OSError, webbrowser.Error):
+            opened = False
+        if not opened:
+            print(f"Report ready. Open this file in your browser: {report.resolve()}")
     if args.tutorial:
         manifest = Path(result.output_dir) / "manifest.json"
         if result.exit_code not in (0, 2) or not manifest.is_file():
             print("[CSAF-E006] Tutorial verification failed: manifest.json was not produced.")
             return 1
+        from csaf.tutorial import mark_tutorial
+
+        try:
+            mark_tutorial(args.output_dir, result.output_dir)
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"[CSAF-E007] Could not verify tutorial or mark it for cleanup: {exc}. Reports were preserved.")
+            return 1
         print(f"[TUTORIAL] Offline fixture evidence verified: {manifest}")
         if args.cleanup_tutorial:
-            output_path = Path(args.output_dir).resolve()
-            if output_path.name != "csaf-output" and output_path.name != "tutorial-output":
-                print("[CSAF-E007] Refusing cleanup: --output-dir must end in csaf-output or tutorial-output.")
+            if _cleanup_tutorial(args.output_dir):
                 return 1
-            shutil.rmtree(output_path, ignore_errors=False)
-            print(f"[TUTORIAL] Cleaned tutorial output: {output_path}")
     return result.exit_code
+
+
+def _cleanup_tutorial(output_dir: str) -> int:
+    from csaf.tutorial import cleanup_tutorial
+
+    try:
+        removed = cleanup_tutorial(output_dir)
+    except (OSError, ValueError, KeyError) as exc:
+        print(
+            f"[CSAF-E007] Refusing cleanup: {exc}.\n"
+            "    Fix: inspect the tutorial marker and use --output-dir tutorial-output. Other reports are preserved."
+        )
+        return 1
+    print(
+        f"[TUTORIAL] Removed {removed} marked tutorial run(s). Other reports and the parent directory were preserved."
+    )
+    return 0
 
 
 def _format_plan(plan: dict) -> str:

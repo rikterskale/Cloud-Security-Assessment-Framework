@@ -52,10 +52,13 @@ An explicit SIEM webhook supports HMAC (default) or bearer authentication:
 `--webhook-url URL --webhook-secret-file SECRET [--webhook-auth hmac|bearer]`.
 Use `--webhook-dry-run` to inspect redacted delivery metadata without a network call.
 
-Compares two finding sets and prints counts for new, resolved, and persisted
-findings. It optionally writes the JSON report specified by `--out`. The
+Compares two finding sets and prints counts for new, resolved, persisted, and
+unverified findings. Resolution requires a matching sibling `technical-report.json`
+with completed evaluation in the same cloud, account, region, and control.
+Loose findings files alone cannot establish resolution. It optionally writes the JSON report specified by `--out`. The
 default `--alert-on new` exits non-zero when a new finding is present;
-`resolved`, `any`, and `none` select the corresponding alert policy.
+`resolved`, `any`, and `none` select the corresponding alert policy. `any`
+also alerts on unverified disappearances so a coverage gap is visible.
 
 `csaf-aggregate RUN_DIR [RUN_DIR ...] --out aggregate-output`
 
