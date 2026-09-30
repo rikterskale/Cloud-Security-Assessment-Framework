@@ -16,6 +16,9 @@ Do not `pip install csaf` — that is the OASIS Common Security Advisory Framewo
 
 ### Fixed
 
+- Updated provider installation and shared lock security floors to urllib3 2.8.0, PyJWT 2.15.0, and oauthlib 4.0.0, with regenerated hashes.
+- Included mypy and its dependencies in the shared lock; CI no longer installs an unpinned type checker after the vulnerability audit inputs are established.
+- CI uploads generated SBOM evidence even when its audit reports vulnerabilities; the job and final security gate still fail.
 - Empty CLI invocation now shows a network-free welcome instead of attempting an implicit AWS scan. Automation must provide explicit scan options.
 - Report search covers every finding once, including findings beyond the former 50-row preview. Filters expose pressed state, live counts, and a no-match recovery message.
 - Reports label synthetic data and inventory mode, explain risk direction, and distinguish unevaluated compliance from a zero pass rate.

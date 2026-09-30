@@ -52,6 +52,15 @@ class TestCIConfig(unittest.TestCase):
         needs_line = next(line for line in self.text.splitlines() if "needs:" in line)
         self.assertIn("sbom", needs_line, "ci-success must depend on the sbom job")
 
+    def test_sbom_upload_preserves_failed_audit_evidence_without_bypassing_the_gate(self):
+        sbom = self.text.split("\n  sbom:", 1)[1].split("\n  test:", 1)[0]
+        self.assertIn("id: generate-sbom", sbom)
+        upload = sbom.split("- uses: actions/upload-artifact@", 1)[1]
+        self.assertIn("if: ${{ !cancelled() && steps.generate-sbom.outcome != 'skipped' }}", upload)
+        self.assertIn("if-no-files-found: error", upload)
+        self.assertNotIn("continue-on-error", sbom)
+        self.assertIn("pip-audit", sbom)
+
     def test_completions_are_utf8_lf(self):
         for name in ("csaf-assess.bash", "_csaf-assess", "csaf-assess.ps1"):
             data = (REPO / "completions" / name).read_bytes()

@@ -10,3 +10,8 @@
 rpds-py<0.31
 backports.tarfile>=1.2
 importlib-metadata>=4.11.4
+
+# Security floors for shared provider HTTP and authentication dependencies.
+urllib3>=2.8.0,<3
+PyJWT[crypto]>=2.15.0,<3
+oauthlib>=4.0.0,<5

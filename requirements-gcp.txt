@@ -1,3 +1,4 @@
 # Optional dependencies for live GCP assessment (--cloud gcp).
 google-auth>=2.28,<3.0
 requests>=2.31,<3.0
+urllib3>=2.8.0,<3

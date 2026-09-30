@@ -1,3 +1,5 @@
 # Optional dependencies for live Azure assessment (--cloud azure).
 azure-identity>=1.15,<2.0
 requests>=2.31,<3.0
+urllib3>=2.8.0,<3
+PyJWT[crypto]>=2.15.0,<3

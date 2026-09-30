@@ -46,9 +46,7 @@ jobs:
       - name: Packaged resource drift check
         run: python tools/sync_resources.py --check
       - name: Type check
-        run: |
-          python -m pip install mypy
-          python -m mypy
+        run: python -m mypy
       - name: Verify generated CLI reference
         run: |
           python tools/generate_cli_reference.py
@@ -108,13 +106,18 @@ jobs:
       - name: Verify installed dependencies
         run: python -m pip check
       - name: Generate CycloneDX SBOM (locked core + optional provider dependencies)
+        id: generate-sbom
         run: >
           pip-audit -r "${{ github.workspace }}/requirements-lock.txt"
           --format cyclonedx-json --output sbom.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        # pip-audit writes the SBOM even when vulnerabilities produce exit 1.
+        # Preserve that evidence without overriding the failing security gate.
+        if: ${{ !cancelled() && steps.generate-sbom.outcome != 'skipped' }}
         with:
           name: sbom
           path: sbom.json
+          if-no-files-found: error
           retention-days: 90
 
   test:
