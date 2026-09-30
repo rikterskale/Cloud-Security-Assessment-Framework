@@ -15,3 +15,6 @@ importlib-metadata>=4.11.4
 urllib3>=2.8.0,<3
 PyJWT[crypto]>=2.15.0,<3
 oauthlib>=4.0.0,<5
+
+# aiohttp requires this on Python 3.10; include it in the shared lock.
+async-timeout>=4,<6
